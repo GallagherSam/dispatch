@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pipx install ruff
+      - run: ruff check .
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.9 is the floor the package claims, so it is tested rather than hoped for.
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.9", "3.11", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: git identity for the worktree tests
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name CI
+          git config --global init.defaultBranch master
+      - run: python -m unittest discover -s tests -t . -v
+        env:
+          NO_COLOR: "1"
+
+  confinement:
+    # The sandbox is the one part that cannot be proved by inspecting argv.
+    # These jobs run it and try to escape it.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            backend: bwrap
+          - os: macos-latest
+            backend: seatbelt
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install bubblewrap
+        if: matrix.backend == 'bwrap'
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+      - name: git identity
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name CI
+          git config --global init.defaultBranch master
+      - name: the backend must be present, not skipped into a green tick
+        run: |
+          python -c "
+          from dispatch import sandbox as SB
+          assert SB.backend_available('${{ matrix.backend }}'), \
+              'backend missing; the confinement tests would silently skip'
+          print('${{ matrix.backend }} available')
+          "
+      - run: python -m unittest tests.test_sandbox_real -v
+
+  package:
+    # An editable install reads the source tree and hides missing package data.
+    # This builds a wheel and runs it where no source exists.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - name: install the wheel into a clean venv
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install --quiet dist/*.whl
+      - name: exercise it with no source in sight
+        run: |
+          cd /tmp
+          /tmp/clean/bin/dispatch --version
+          /tmp/clean/bin/dispatch docs channels | head -2
+          mkdir -p /tmp/probe && cd /tmp/probe
+          git init -q . && git config user.email c@i && git config user.name ci
+          echo x > f.txt && git add -A && git commit -qm init
+          /tmp/clean/bin/dispatch init --no-verify
+          test -f .dispatch/agents/developer.md
+          test -f .dispatch/gates/quota.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

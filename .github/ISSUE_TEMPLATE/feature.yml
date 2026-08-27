@@ -1,0 +1,16 @@
+name: Idea
+description: Something dispatch should do that it does not
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The friction
+      description: >
+        What were you trying to do, and where did it get in the way? A concrete
+        session that went badly is worth more than a proposed feature.
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you had in mind, if anything

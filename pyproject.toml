@@ -1,0 +1,64 @@
+[project]
+name = "dispatch-board"
+version = "0.1.0"
+description = "A kanban board that drives a fleet of coding agents. The loop is code; the model is a subroutine."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Sam Gallagher" }]
+keywords = ["agents", "claude", "orchestration", "kanban", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+]
+# The installed tool has no dependencies and is meant to keep it that way.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/GallagherSam/dispatch"
+Documentation = "https://github.com/GallagherSam/dispatch/tree/main/docs"
+Issues = "https://github.com/GallagherSam/dispatch/issues"
+
+[project.scripts]
+dispatch = "dispatch.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["dispatch"]
+
+[tool.setuptools.package-data]
+dispatch = ["web/*", "docs/*", "scaffold/*", "scaffold/gates/*", "scaffold/agents/*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",    # long lines are caught by review, not by a linter
+    "SIM105",  # contextlib.suppress is not clearer than try/except/pass here
+    "B008",    # not a web framework; default-arg calls are deliberate
+    "RUF012",  # ClassVar annotations on test fixtures add noise
+    "SIM118",  # `k in row.keys()` is deliberate: sqlite3.Row iterates VALUES
+    "SIM401",  # sqlite3.Row has no .get, and this rewrote a working check
+    # Parenthesised multi-context `with` is 3.10+ and this targets 3.9, so
+    # collapsing these means long lines or an ExitStack. Nesting reads fine.
+    "SIM117",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]   # sys.path is set up before the imports on purpose

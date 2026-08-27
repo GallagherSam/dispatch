@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>dispatch</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🚦</text></svg>">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg class="lamp" width="30" height="12" viewBox="0 0 30 12" aria-hidden="true" focusable="false">
+      <rect x="0.5" y="0.5" width="29" height="11" rx="5.5" fill="none" stroke="var(--rule-strong)"/>
+      <circle cx="7"  cy="6" r="2.6" fill="var(--stop)"/>
+      <circle cx="15" cy="6" r="2.6" fill="var(--approach)"/>
+      <circle cx="23" cy="6" r="2.6" fill="var(--clear)"/>
+    </svg>
+    dispatch
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button role="tab" data-tab="board" class="on" aria-selected="true" aria-controls="pane-board">Board</button>
+    <button role="tab" data-tab="needs" aria-selected="false" aria-controls="pane-needs">Needs You <span class="badge" id="cpCount" hidden>0</span></button>
+    <button role="tab" data-tab="blocked" aria-selected="false" aria-controls="pane-blocked">Why nothing's running</button>
+    <button role="tab" data-tab="workflows" aria-selected="false" aria-controls="pane-workflows">Workflows</button>
+    <button role="tab" data-tab="log" aria-selected="false" aria-controls="pane-log">Log</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="strip">
+    <div class="stat" id="schedState"><span class="dot off"></span>scheduler</div>
+    <div class="stat" id="spend" title="spend and runs recorded on this board">$0.00</div>
+    <div class="stat" id="ratio" title="cards created per card finished"></div>
+  </div>
+  <button class="btn" id="pauseBtn">Pause</button>
+  <button class="btn" id="intentBtn" title="Describe what you want (d)">Describe work</button>
+  <button class="btn primary" id="newBtn" title="New card (n)">New card</button>
+</header>
+
+<main>
+  <div class="pane on" id="pane-board" role="tabpanel">
+    <div class="columns" id="columns"></div>
+  </div>
+
+  <div class="pane" id="pane-needs" role="tabpanel">
+    <h2 class="sec">Needs you</h2>
+    <p class="sub">Each checkpoint blocks only what depends on it — the rest of the board keeps running. A rejection reason becomes the next agent's instruction.</p>
+    <div id="checkpoints"></div>
+    <h2 class="sec" style="margin-top:28px">Proposals awaiting you</h2>
+    <p class="sub">Proposals the adjudicator escalated rather than deciding on its own.</p>
+    <div id="proposals"></div>
+  </div>
+
+  <div class="pane" id="pane-blocked" role="tabpanel">
+    <h2 class="sec">Why nothing's running</h2>
+    <p class="sub">For every unfinished card, exactly what is holding it. The scheduler computes this every tick anyway.</p>
+    <div id="blocked"></div>
+  </div>
+
+  <div class="pane" id="pane-workflows" role="tabpanel">
+    <h2 class="sec">Workflows</h2>
+    <p class="sub">A card type owns an ordered pipeline. Each stage names the agent that works it and the gates it must clear. Saved to <code class="mono">.dispatch/workflows.json</code> so it can be committed and imported into another repo.</p>
+    <div class="wfgrid">
+      <div>
+        <div class="wflist" id="wflist"></div>
+        <div class="actions" style="margin-top:10px">
+          <button class="btn" id="wfAdd">Add type</button>
+          <button class="btn" id="wfExport">Export</button>
+          <button class="btn" id="wfImport">Import</button>
+        </div>
+        <input type="file" id="wfFile" accept="application/json" hidden>
+      </div>
+      <div class="wfedit" id="wfedit"></div>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-log" role="tabpanel">
+    <h2 class="sec">Event log</h2>
+    <p class="sub">Append-only. Every state change, in order — this is what makes "what did the arbiter see when it approved that?" answerable.</p>
+    <div id="log"></div>
+  </div>
+</main>
+
+<aside class="drawer hide" id="drawer" aria-label="Card detail"></aside>
+
+<div class="modal hide" id="modal" role="dialog" aria-modal="true" aria-label="New card">
+  <div class="sheet" id="sheet"></div>
+</div>
+<div class="toast hide" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
