@@ -220,6 +220,7 @@ class Handler(BaseHTTPRequestHandler):
                                parent_id=body.get("parent_id") or None,
                                tags=body.get("tags") or [],
                                priority=int(body.get("priority", 50)),
+                               model=body.get("model") or None,
                                scope=body.get("scope") or [],
                                depends_on=body.get("depends_on") or [],
                                budget=body.get("budget") or None)
@@ -365,7 +366,7 @@ class Handler(BaseHTTPRequestHandler):
             if p.startswith("/api/task/"):
                 tid = p.split("/")[-1]
                 allowed = {"title", "brief", "acceptance", "tags", "priority",
-                           "card_type", "max_attempts", "gates", "budget",
+                           "card_type", "max_attempts", "gates", "budget", "model",
                            "block_reason", "status", "agent_type"}
                 fields = {k: v for k, v in body.items() if k in allowed}
                 if "scope" in body:

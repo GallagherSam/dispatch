@@ -19,7 +19,7 @@
   /* signals */
   --clear:#186752; --approach:#8B5F0F; --stop:#A03526; --info:#295A78;
   --clear-tint:#E3F0EA; --approach-tint:#F7EEDA; --stop-tint:#F8E6E1; --info-tint:#E5EFF5;
-  --clear-edge:#9CC9BA; --approach-edge:#DCC088; --stop-edge:#E0AFA5;
+  --clear-edge:#9CC9BA; --approach-edge:#DCC088; --stop-edge:#E0AFA5; --info-edge:#A8C4D4;
   --on-signal:#FFFFFF;
 
   /* code + chrome */
@@ -42,7 +42,7 @@
 
     --clear:#5CC3A4; --approach:#D6A648; --stop:#E28472; --info:#7BB4D6;
     --clear-tint:#12261F; --approach-tint:#2A2113; --stop-tint:#2A1815; --info-tint:#12222D;
-    --clear-edge:#2E6555; --approach-edge:#6B551F; --stop-edge:#6E3A32;
+    --clear-edge:#2E6555; --approach-edge:#6B551F; --stop-edge:#6E3A32; --info-edge:#2C5468;
     --on-signal:#0B100E;
 
     --code-bg:#101815; --code-rule:#26332E;
@@ -571,3 +571,7 @@ ul.crit li{color:var(--ink-2)}
   margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted);
   white-space:nowrap;
 }
+
+/* A model chip appears only when a card overrides the default, so its presence
+   is the signal. */
+.chip.model{color:var(--info);border-color:var(--info-edge)}

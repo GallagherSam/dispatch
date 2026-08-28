@@ -23,11 +23,13 @@
     dispatch add TITLE
       --brief "..."                     the literal prompt the agent receives
       --accept "..."                    acceptance criterion (repeatable)
+      --model opus                      the model for this card
       --scope "src/**"                  glob the work is confined to (repeatable)
       --type development                card type -> pipeline
       --parent t_abc123                 containment and a shared budget
       --depends-on t_abc123             ordering
       --tag api                         repeatable
+      --model opus                      beats the stage and the role
       --priority 70                     higher goes first (default 50)
       --budget 40                       usd ceiling for this subtree
       --max-attempts 3                  returns before dead-lettering

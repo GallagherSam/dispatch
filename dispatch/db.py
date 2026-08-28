@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     card_type     TEXT NOT NULL DEFAULT 'development',
     stage         TEXT NOT NULL DEFAULT 'backlog',
     agent_type    TEXT,                          -- resolved from workflow, overridable
+    model         TEXT,                          -- overrides the stage and the agent
     status        TEXT NOT NULL DEFAULT 'queued',
     parent_id     TEXT REFERENCES tasks(id) ON DELETE SET NULL,
     priority      INTEGER NOT NULL DEFAULT 50,
@@ -109,6 +110,7 @@ CREATE TABLE IF NOT EXISTS runs (
     task_id      TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     stage        TEXT NOT NULL,
     agent_type   TEXT NOT NULL,
+    model        TEXT,
     attempt      INTEGER NOT NULL DEFAULT 1,
     status       TEXT NOT NULL DEFAULT 'running',
     exit_code    INTEGER,
@@ -219,6 +221,8 @@ class DB:
             ("checkpoints", "kind", "TEXT NOT NULL DEFAULT 'signoff'"),
             ("tasks", "plan", "TEXT"),
             ("checkpoints", "audience", "TEXT NOT NULL DEFAULT 'any'"),
+            ("tasks", "model", "TEXT"),
+            ("runs", "model", "TEXT"),
             ("checkpoints", "topic", "TEXT"),
         ):
             have = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}

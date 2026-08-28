@@ -47,6 +47,7 @@ and says what to leave alone. Agents follow the last one as much as the others.
 | `--parent` | containment and a shared budget ceiling, not ordering |
 | `--depends-on` | ordering |
 | `--budget` | usd ceiling for this card and everything beneath it |
+| `--model` | the model for this card, beating the stage and the role |
 | `--priority` | higher goes first out of the ready set (default 50) |
 | `--max-attempts` | returns before dead-lettering (default 3) |
 | `--start` | put it straight on stage 1 instead of the backlog |

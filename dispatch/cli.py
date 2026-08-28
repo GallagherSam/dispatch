@@ -388,6 +388,7 @@ def cmd_add(args) -> int:
                    card_type=args.card_type, acceptance=args.accept or [],
                    parent_id=args.parent, tags=args.tag or [],
                    priority=args.priority, scope=args.scope or [],
+                   model=args.model,
                    depends_on=args.depends_on or [],
                    budget={"usd": args.budget} if args.budget else None,
                    max_attempts=args.max_attempts)
@@ -419,6 +420,7 @@ def cmd_ls(args) -> int:
             "id": t["id"], "title": t["title"], "card_type": t["card_type"],
             "stage": t["stage"], "status": t["status"],
             "running": t["id"] in leased, "priority": t["priority"],
+            "model": t.get("model"),
             "attempts": t["attempts"], "max_attempts": t["max_attempts"],
             "tags": t["tags"], "parent_id": t["parent_id"],
             "blocked_by": B.blockers(db, cfg, wfs, t),
@@ -440,14 +442,21 @@ def cmd_ls(args) -> int:
 
 
 def cmd_show(args) -> int:
-    _root, db, cfg, wfs = _ctx(args)
+    root, db, cfg, wfs = _ctx(args)
     t = B.get(db, args.id)
     if not t:
         _p(f"{C['r']}no such card{C['0']}")
         return 1
     _p(f"{C['b']}{t['id']}{C['0']}  {t['title']}")
+    from dispatch.config import load_agents
+    from dispatch.runner import resolve_model
+    model = resolve_model(wfs, load_agents(root), t)
+    origin = ("this card" if t.get("model")
+              else "the stage" if (W.stage_entry(wfs, t["card_type"], t["stage"]) or {}).get("model")
+              else f"the {t['agent_type']} role")
     _p(f"{C['dim']}{t['card_type']} · {t['stage']} / {t['status']} · "
-       f"agent={t['agent_type']} · attempts {t['attempts']}/{t['max_attempts']}{C['0']}")
+       f"agent={t['agent_type']} · model={model} (from {origin}) · "
+       f"attempts {t['attempts']}/{t['max_attempts']}{C['0']}")
     pipe = W.pipeline(wfs, t["card_type"])
     _p("pipeline: " + " → ".join(
         (C["b"] + e["stage"] + C["0"]) if e["stage"] == t["stage"] else e["stage"]
@@ -506,6 +515,8 @@ def cmd_edit(args) -> int:
         fields["max_attempts"] = args.max_attempts
     if args.type:
         fields["card_type"] = args.type
+    if args.model:
+        fields["model"] = None if args.model.lower() == "default" else args.model
     if args.scope:
         ws = dict(t["workspace"])
         ws["scope"] = list(args.scope)
@@ -1640,6 +1651,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--parent")
     s.add_argument("--depends-on", action="append")
     s.add_argument("--priority", type=int, default=50)
+    s.add_argument("--model", help="override the model for this card "
+                                   "(opus, sonnet, haiku, or a full claude-… id)")
     s.add_argument("--budget", type=float, help="usd ceiling for this card's subtree")
     s.add_argument("--max-attempts", type=int, default=3)
     s.add_argument("--start", action="store_true", help="move straight onto stage 1")
@@ -1669,6 +1682,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--scope", action="append")
     s.add_argument("--tag", action="append")
     s.add_argument("--type")
+    s.add_argument("--model", help="set the model for this card, or `default` "
+                                   "to fall back to the stage and the role")
     s.add_argument("--priority", type=int)
     s.add_argument("--max-attempts", type=int)
     s.add_argument("--requeue", action="store_true",

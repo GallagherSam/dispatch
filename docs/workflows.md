@@ -18,7 +18,7 @@ stage runs — which is what makes the board read like a board.
       {"stage": "build",   "agent": "developer",
        "gates": ["tests_pass", "has_acceptance"]},
       {"stage": "qa",      "agent": "qa", "gates": ["tests_pass"]},
-      {"stage": "review",  "agent": "reviewer", "gates": []},
+      {"stage": "review",  "agent": "reviewer", "gates": [], "model": "opus"},
       {"stage": "signoff", "agent": "human",
        "auto_pass_if": "small_and_green", "sla": "4h", "on_sla": "block"},
       {"stage": "integrate", "agent": "integrator",
@@ -31,9 +31,28 @@ stage runs — which is what makes the board read like a board.
 | `stage` | which board column, from the global list in `config.json` |
 | `agent` | role from `agents.json`; `human` makes it a checkpoint |
 | `gates` | extra gates for this stage, on top of the global ones |
+| `model` | the model this stage's agent uses, overriding the role's default |
 | `lock` | a named mutex — only one card holds it at a time |
 | `auto_pass_if` | human stages only: skip asking when it's trivial |
 | `sla` / `on_sla` | human stages only: what happens if nobody answers |
+
+## Which model works a stage
+
+Three places can say, and the most specific wins:
+
+    the card  >  the stage  >  the agent role
+
+The role is the floor (`agents.json`). The stage is where you say "review is
+always worth the better model" once instead of on every card. The card is for
+"this particular one is hard".
+
+    dispatch add "Tricky refactor" --model opus --accept "..."
+    dispatch edit t_abc123 --model default      # back to the stage and role
+
+`opus`, `sonnet`, `haiku`, `fable`, or a full `claude-…` id. An unrecognised
+name is flagged when the workflow is validated rather than refused — models
+outlive allowlists — but a typo would otherwise surface as a confusing failure
+inside a run.
 
 ## Columns are global, pipelines are subsets
 
