@@ -38,9 +38,36 @@ jobs:
           git config --global user.email ci@example.com
           git config --global user.name CI
           git config --global init.defaultBranch master
+      - name: poison the agent binaries so a real model call cannot hide
+        # The suite stubs the agent in the test base class, which is a property
+        # of the code rather than a guarantee. A test added later that builds
+        # its own config would reach a real `claude` — billing the maintainer
+        # from CI and, worse, passing. These shims make that a loud failure.
+        run: |
+          mkdir -p "$RUNNER_TEMP/poison"
+          for b in claude srt; do
+            printf '#!/bin/sh\necho "$0 $*" >> "$AGENT_CALL_MARKER"\nexit 97\n' \
+              > "$RUNNER_TEMP/poison/$b"
+            chmod +x "$RUNNER_TEMP/poison/$b"
+          done
+          echo "$RUNNER_TEMP/poison" >> "$GITHUB_PATH"
+          echo "AGENT_CALL_MARKER=$RUNNER_TEMP/agent-was-called" >> "$GITHUB_ENV"
+
       - run: python -m unittest discover -s tests -t . -v
         env:
           NO_COLOR: "1"
+          # Explicitly empty: an inherited key is what made agent runs bill the
+          # API instead of the subscription once already.
+          ANTHROPIC_API_KEY: ""
+
+      - name: no unit test may call a model
+        run: |
+          if [ -f "$AGENT_CALL_MARKER" ]; then
+            echo "::error::a unit test invoked a real agent — it belongs in an integration test"
+            cat "$AGENT_CALL_MARKER"
+            exit 1
+          fi
+          echo "no agent binary was invoked"
 
   confinement:
     # The sandbox is the one part that cannot be proved by inspecting argv.
@@ -61,20 +88,40 @@ jobs:
           python-version: "3.12"
       - name: install bubblewrap
         if: matrix.backend == 'bwrap'
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+        run: |
+          sudo apt-get update && sudo apt-get install -y bubblewrap
+          # Ubuntu 24.04 blocks unprivileged user namespaces through AppArmor,
+          # which is what bwrap needs to build a sandbox: without this it fails
+          # with "setting up uid map: Permission denied" and the confinement
+          # tests cannot run at all. The runner is disposable, and this only
+          # relaxes it inside the job.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - name: git identity
         run: |
           git config --global user.email ci@example.com
           git config --global user.name CI
           git config --global init.defaultBranch master
-      - name: the backend must be present, not skipped into a green tick
+      - name: the backend must be usable, not merely installed
         run: |
+          # `backend_available` only asks whether the binary is on PATH. It
+          # said yes on a runner where every sandbox failed to start, so the
+          # guard passed and the tests failed instead of skipping honestly.
+          # Building a real sandbox is the only check worth making.
           python -c "
           from dispatch import sandbox as SB
           assert SB.backend_available('${{ matrix.backend }}'), \
               'backend missing; the confinement tests would silently skip'
-          print('${{ matrix.backend }} available')
+          print('${{ matrix.backend }} is on PATH')
           "
+          case "${{ matrix.backend }}" in
+            bwrap)
+              bwrap --ro-bind / / --dev /dev true \
+                || { echo "::error::bwrap cannot create a sandbox here"; exit 1; } ;;
+            seatbelt)
+              sandbox-exec -p '(version 1)(allow default)' /usr/bin/true \
+                || { echo "::error::sandbox-exec cannot create a sandbox here"; exit 1; } ;;
+          esac
+          echo "${{ matrix.backend }} can actually build a sandbox"
       - run: python -m unittest tests.test_sandbox_real -v
 
   package:
@@ -107,3 +154,32 @@ jobs:
         with:
           name: dist
           path: dist/
+
+  ci:
+    # The one check to require in branch protection.
+    #
+    # The matrix jobs are named `test (macos-latest, 3.13)` and change shape
+    # whenever a Python version or an OS is added. A required check that no
+    # longer exists blocks every PR forever; one that was renamed away stops
+    # being required and nobody notices. This name never changes.
+    if: always()
+    needs: [lint, test, confinement, package]
+    runs-on: ubuntu-latest
+    steps:
+      - name: every job must have actually passed
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          # A *skipped* required check counts as success on GitHub, and a
+          # failed dependency skips this job rather than failing it — so the
+          # results are asserted against, never assumed. Reading the structured
+          # `needs` rather than a joined string means no dependence on shell
+          # word-splitting, and the offending job gets named.
+          needs = json.loads(r"""${{ toJSON(needs) }}""")
+          for job, v in sorted(needs.items()):
+              print(f"  {job:<12} {v['result']}")
+          bad = sorted(j for j, v in needs.items() if v["result"] != "success")
+          if bad:
+              print(f"::error::did not pass: {', '.join(bad)}")
+              sys.exit(1)
+          EOF

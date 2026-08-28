@@ -3,7 +3,7 @@ import os
 
 from dispatch import board as B
 from dispatch import merge as M
-from tests.helpers import BoardCase, git
+from tests.helpers import FAILING_TEST, BoardCase, git
 
 CALC_WITH_MUL = ("def add(a, b):\n    return a + b\n\n\n"
                  "def mul(a, b):\n    return a * b\n")
@@ -119,7 +119,7 @@ class TestMergeFailure(MergeCase):
 
         # someone lands a change that the card's tests do not survive
         self.write("tests/test_calc.py",
-                   "def test_impossible():\n    assert False\n")
+                   FAILING_TEST)
         git(self.root, "add", "tests/test_calc.py")
         git(self.root, "commit", "-qm", "a failing test on the base branch")
 

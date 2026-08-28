@@ -1,0 +1,4 @@
+# Every path is owned, so every pull request requests review from the
+# maintainer automatically. Paired with "require review from Code Owners"
+# this is what stops a contributor's PR merging unreviewed.
+*       @GallagherSam

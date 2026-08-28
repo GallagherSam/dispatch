@@ -52,15 +52,38 @@ print(json.dumps({"result": plan.get("summary", "did " + stage),
 sys.exit(plan.get("exit", 0))
 '''
 
+#: The fixture repo's own test. It is stdlib `unittest`, not pytest, because
+#: the gate really runs it: a pytest-shaped test needs pytest installed, and
+#: whether the developer happens to have it then decides whether this project's
+#: suite passes. It did — CI has no pytest, every card dead-lettered at its
+#: first gate, and twelve tests failed for a reason nothing named.
 PASSING_TEST = '''\
-import sys, os
+import os
+import sys
+import unittest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from calc import add
 
-def test_add():
-    assert add(2, 3) == 5
+
+class TestAdd(unittest.TestCase):
+    def test_add(self):
+        self.assertEqual(add(2, 3), 5)
 '''
 
+
+#: A test the gate must see fail. Same shape as PASSING_TEST for the same
+#: reason: `def test_x(): assert False` is invisible to `unittest discover`,
+#: so a gate that was supposed to fail quietly passes and the test asserting
+#: the failure path proves nothing.
+FAILING_TEST = '''\
+import unittest
+
+
+class TestBroken(unittest.TestCase):
+    def test_broken(self):
+        self.fail("deliberately broken")
+'''
 
 import contextlib
 import io
@@ -102,7 +125,11 @@ class BoardCase(unittest.TestCase):
             git(self.root, "commit", "-qm", "initial")
 
         with _quiet():
-            rc = cli_main(["init", self.root, "--test-cmd", "python3 -m pytest -q",
+            # sys.executable, not `python3`: the gate runs this command, and
+            # resolving it through PATH makes the result depend on which
+            # interpreter happens to be first.
+            rc = cli_main(["init", self.root, "--test-cmd",
+                           f"{sys.executable} -m unittest discover -s tests",
                            "--no-verify"])
         assert rc == 0, "dispatch init failed"
 

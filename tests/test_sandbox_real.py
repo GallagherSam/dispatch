@@ -105,10 +105,27 @@ class TestSeatbeltReallyConfines(RealConfinement):
 class TestBwrapReallyConfines(RealConfinement):
     backend = "bwrap"
 
-    def test_the_network_is_deliberately_untouched(self):
+    def test_dns_still_resolves_inside_the_sandbox(self):
+        # REGRESSION: `--tmpfs /run` erased the target of /etc/resolv.conf on
+        # systemd hosts, so name resolution failed inside the sandbox while a
+        # raw connection still worked. Agents lost web research with no error
+        # naming DNS. This asks the resolver directly, so a failure here means
+        # DNS and not a flaky network.
         out = self.run_confined(
-            "command -v curl >/dev/null && "
-            "curl -s -o /dev/null -w '%{http_code}' --max-time 20 "
-            "https://example.com || echo skipped")
+            "python3 -c \"import socket; socket.gethostbyname('example.com'); "
+            "print('resolved')\"")
+        self.assertIn("resolved", out.stdout,
+                      f"DNS did not resolve inside the sandbox: {out.stderr[-400:]}")
+
+    def test_the_network_is_deliberately_untouched(self):
+        # `&&`/`||` in one line let a curl that ran *and failed* print its 000
+        # and then the skip marker too, so a blocked network read as a missing
+        # curl. The two cases are separated now.
+        probe = self.run_confined("command -v curl >/dev/null && echo yes || echo no")
+        if "yes" not in probe.stdout:
+            self.skipTest("no curl inside the sandbox")
+        out = self.run_confined(
+            "curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://example.com")
         self.assertNotIn("000", out.stdout,
-                         "the filesystem-only backend blocked the network")
+                         f"the filesystem-only backend blocked the network: "
+                         f"{out.stderr[-400:]}")

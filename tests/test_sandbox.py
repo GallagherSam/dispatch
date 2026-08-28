@@ -6,6 +6,7 @@ internet open, srt also locks egress down.
 import json
 import os
 import platform
+import unittest
 from unittest import mock
 
 from dispatch import sandbox as SB
@@ -190,6 +191,8 @@ class TestSrtBackend(BoardCase):
 class TestWrap(BoardCase):
     needs_git = False
 
+    @unittest.skipUnless(SB.backend_available("seatbelt"),
+                         "sandbox-exec is macOS only")
     def test_seatbelt_writes_a_profile_and_prefixes_the_command(self):
         argv, meta = SB.wrap(on(backend="seatbelt"), ["claude", "-p"],
                              self.root, self.tmp)
@@ -275,6 +278,13 @@ class TestPreflight(BoardCase):
         self.assertEqual(self.stages_run(tid), [])
 
 
+#: `wrap` refuses to run unsandboxed when the sandbox is on, so these need a
+#: real backend. Skipping honestly is right here — the `confinement` CI job is
+#: where a missing backend is a hard error, so this cannot hide a gap.
+_HAS_BACKEND = any(SB.backend_available(b) for b in ("seatbelt", "bwrap"))
+
+
+@unittest.skipUnless(_HAS_BACKEND, "no sandbox backend on this host")
 class TestRunnerIntegration(BoardCase):
     def _run(self):
         self.only_workflow("t", [{"stage": "build", "agent": "developer"}])
