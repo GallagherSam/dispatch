@@ -49,8 +49,19 @@ jobs:
                         text, re.S | re.M)
           if not m or not m.group(1).strip():
               sys.exit(f"CHANGELOG.md has no entry for {version}")
-          open("RELEASE_NOTES.md", "w").write(m.group(1).strip() + "\n")
-          print(f"release notes: {len(m.group(1).strip().splitlines())} lines")
+          body = m.group(1).strip().splitlines()
+          # The link definitions at the foot of the changelog sit under the last
+          # version heading, so they land in the notes of whichever release is
+          # oldest-last. They render as nothing, which is exactly why nobody
+          # would notice them accumulating.
+          while body and re.match(r"^\[[^\]]+\]:\s*http", body[-1]):
+              body.pop()
+          while body and not body[-1].strip():
+              body.pop()
+          if not body:
+              sys.exit(f"CHANGELOG.md entry for {version} is only link definitions")
+          open("RELEASE_NOTES.md", "w").write("\n".join(body) + "\n")
+          print(f"release notes: {len(body)} lines")
           PY
 
       - run: python -m pip install --upgrade build twine
