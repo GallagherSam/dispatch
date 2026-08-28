@@ -3,7 +3,7 @@ import os
 import stat
 
 from dispatch import gates as G
-from tests.helpers import BoardCase
+from tests.helpers import FAILING_TEST, BoardCase
 
 
 class TestGlobMatching(BoardCase):
@@ -227,9 +227,12 @@ class TestBuiltins(BoardCase):
         self.assertGreater(v.retry_after_s, 0)
 
     def test_tests_pass_reports_the_failure_as_evidence(self):
-        self.write("tests/test_calc.py", "def test_broken():\n    assert False\n")
+        self.write("tests/test_calc.py", FAILING_TEST)
         tid = self.add_card()
         ctx = self._ctx(self.task(tid), cwd=self.root)
         v = G.BUILTINS["tests_pass"](ctx, [])
         self.assertEqual(v.verdict, G.FAIL)
-        self.assertIn("pytest", v.evidence)
+        # the command that ran and what it said, so the next attempt's brief
+        # can act on it — not just "tests failed"
+        self.assertIn("unittest discover", v.evidence)
+        self.assertIn("deliberately broken", v.evidence)

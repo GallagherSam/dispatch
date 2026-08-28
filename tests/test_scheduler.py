@@ -8,7 +8,7 @@ import time
 
 from dispatch import board as B
 from dispatch import gates as G
-from tests.helpers import BoardCase
+from tests.helpers import FAILING_TEST, BoardCase
 
 CALC_WITH_MUL = ("def add(a, b):\n    return a + b\n\n\n"
                  "def mul(a, b):\n    return a * b\n")
@@ -59,7 +59,7 @@ class TestFailureHandling(BoardCase):
 
     def test_a_failing_gate_returns_the_card_with_evidence(self):
         self.plan_agent({"*": {"write": {
-            "tests/test_calc.py": "def test_broken():\n    assert False\n"}}})
+            "tests/test_calc.py": FAILING_TEST}}})
         tid = self.add_card(card_type="t", max_attempts=2)
         sched = self.scheduler()
         for _ in range(20):
@@ -73,7 +73,7 @@ class TestFailureHandling(BoardCase):
 
     def test_attempts_exhausted_lands_in_the_dead_letter_column(self):
         self.plan_agent({"*": {"write": {
-            "tests/test_calc.py": "def test_broken():\n    assert False\n"}}})
+            "tests/test_calc.py": FAILING_TEST}}})
         tid = self.add_card(card_type="t", max_attempts=2)
         self.drain(until=lambda s: s.task(tid)["status"] == B.DEADLETTER,
                    max_ticks=200)

@@ -304,12 +304,26 @@ class TestFinalTransitionIsReported(BoardCase):
             a = self.add_card("a")
             seen = []
 
-            def finish(tid=a):
-                time.sleep(0.03)
-                B.update(self.db, tid, status=B.DONE)
+            # The writer runs in a daemon thread nobody joins, so an
+            # exception in it used to vanish and this test would fail as
+            # "the transition was not reported" when the transition had
+            # never happened at all. Two different bugs, one message.
+            err: list[BaseException] = []
 
-            threading.Thread(target=finish, daemon=True).start()
+            def finish(tid=a):
+                try:
+                    time.sleep(0.03)
+                    B.update(self.db, tid, status=B.DONE)
+                except BaseException as e:      # noqa: BLE001
+                    err.append(e)
+
+            th = threading.Thread(target=finish, daemon=True)
+            th.start()
             W.wait(self.db, [a], interval=0.02, timeout=5,
                    on_change=lambda t, w, n, seen=seen: seen.append(n["status"]))
-            self.assertIn(B.DONE, seen)
+            th.join(timeout=5)
+            self.assertFalse(err, f"the writer thread raised: {err}")
+            self.assertEqual(self.task(a)["status"], B.DONE,
+                             "the card never actually reached done")
+            self.assertIn(B.DONE, seen, f"transition unreported; saw {seen}")
             B.cancel(self.db, a)
