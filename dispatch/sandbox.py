@@ -231,6 +231,15 @@ def bwrap_argv(cfg: dict[str, Any], worktree: str) -> list[str]:
     namespace left alone."""
     argv = ["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
             "--tmpfs", "/run", "--die-with-parent"]
+    # The tmpfs over /run hides the host's runtime sockets, and on a systemd
+    # box it also erases the target of /etc/resolv.conf, which is a symlink
+    # into /run. DNS then fails inside the sandbox while everything else looks
+    # fine — the agent has a network namespace and no way to resolve a name,
+    # so web research just stops working with no error that says why. Bind the
+    # resolver file back, and nothing else from /run.
+    resolv = os.path.realpath("/etc/resolv.conf")
+    if resolv.startswith("/run/"):
+        argv += ["--ro-bind-try", resolv, resolv]
     for p in write_paths(cfg, worktree):
         real = os.path.expanduser(p)
         if os.path.exists(real):

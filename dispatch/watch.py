@@ -61,8 +61,15 @@ def settled(state: dict[str, dict[str, Any]]) -> bool:
 
 
 def outcome(db: DB, ids: list[str],
-            stop_on_checkpoint: bool = True) -> tuple[int, str]:
-    state = snapshot(db, ids)
+            stop_on_checkpoint: bool = True,
+            state: dict[str, dict[str, Any]] | None = None) -> tuple[int, str]:
+    """Judge the cards. Pass `state` to judge an observation you already have.
+
+    `wait` must decide from the same snapshot it reported, or the transition
+    that ends the wait can happen in the gap between the two reads — reported
+    as nothing, returned as done.
+    """
+    state = snapshot(db, ids) if state is None else state
     if not state:
         return OK, "no such cards"
     if stop_on_checkpoint:
@@ -103,14 +110,16 @@ def wait(db: DB, ids: list[str], *, timeout: float = 0.0,
                 on_change(tid, was, cur)
 
     while True:
-        # Report before deciding to return: the transition that ends the wait
-        # is the one the caller most wants to see, and checking first meant
-        # never reporting it.
+        # Report before deciding to return, and decide from the very snapshot
+        # that was reported. Ordering alone was not enough: `outcome` used to
+        # take its own snapshot, so a card finishing in the gap between the two
+        # reads returned OK on a state nothing had reported. The wait ended
+        # having never mentioned the transition that ended it.
         current = snapshot(db, ids)
         report(current)
         previous = current
 
-        code, reason = outcome(db, ids, stop_on_checkpoint)
+        code, reason = outcome(db, ids, stop_on_checkpoint, state=current)
         if code >= 0:
             return code, reason
         if deadline and time.time() >= deadline:

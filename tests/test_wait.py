@@ -2,6 +2,7 @@
 import json
 import threading
 import time
+from unittest import mock
 
 from dispatch import board as B
 from dispatch import watch as W
@@ -327,3 +328,43 @@ class TestFinalTransitionIsReported(BoardCase):
                              "the card never actually reached done")
             self.assertIn(B.DONE, seen, f"transition unreported; saw {seen}")
             B.cancel(self.db, a)
+
+
+class TestTheEndingTransitionIsNeverLost(BoardCase):
+    """The gap between reporting and deciding.
+
+    Reproduced on CI as a one-in-many flake before it was understood: the card
+    reached done, the writer raised nothing, and `wait` returned OK having
+    reported only 'queued'.
+    """
+    needs_git = False
+
+    # REGRESSION: `wait` reported from one snapshot and then called `outcome`,
+    # which took its own. A card that finished between the two reads was
+    # returned as done and reported as nothing — so a session waiting on the
+    # board learned the wait had ended but never that the card landed. This
+    # forces that interleaving instead of waiting for a slow machine to.
+    def test_a_card_finishing_between_the_two_reads_is_still_reported(self):
+        a = self.add_card("a")
+        seen = []
+        calls = []
+        real = W.snapshot
+
+        def racing_snapshot(db, ids):
+            state = real(db, ids)
+            # exactly once, after the loop has taken its snapshot, land the
+            # card — the position the old code read it from and never told
+            # anyone about
+            calls.append(1)
+            if len(calls) == 2:
+                B.update(db, a, status=B.DONE)
+            return state
+
+        with mock.patch.object(W, "snapshot", racing_snapshot):
+            code, _ = W.wait(self.db, [a], interval=0.01, timeout=5,
+                             on_change=lambda t, w, n: seen.append(n["status"]))
+
+        self.assertEqual(code, W.OK)
+        self.assertEqual(self.task(a)["status"], B.DONE)
+        self.assertIn(B.DONE, seen,
+                      f"the transition that ended the wait went unreported; saw {seen}")
