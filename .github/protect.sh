@@ -53,18 +53,15 @@ gh api -X PUT "repos/$REPO/branches/$BRANCH/protection" --input - <<'JSON' --jq 
 }
 JSON
 
-# Fork pull requests: left as a manual step on purpose. The REST endpoint for
-# this is not reachable on a private repo, so it could not be verified before
-# being written down, and a settings script that half-works is worse than one
-# that tells you what it did not do.
-#
-#   Settings > Actions > General > Fork pull request workflows from
-#   outside collaborators  ->  "Require approval for all external contributors"
-#
+echo "==> fork pull requests need approval before they run anything"
 # CI runs on `pull_request`, not `pull_request_target`, so a fork's code never
 # sees repository secrets. This is the second net, and it also stops a drive-by
-# fork burning Actions minutes.
-echo "==> MANUAL: Settings > Actions > require approval for all external contributors"
+# fork burning Actions minutes. The default is first_time_contributors, which
+# stops watching after someone's first merged PR.
+gh api -X PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" \
+  -f approval_policy=all_external_contributors
+gh api "repos/$REPO/actions/permissions/fork-pr-contributor-approval" \
+  --jq '"  \(.approval_policy)"'
 
 echo "==> workflow token stays read-only, and cannot approve pull requests"
 gh api -X PUT "repos/$REPO/actions/permissions/workflow" \
