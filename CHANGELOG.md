@@ -5,18 +5,7 @@ and [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
-### Added
-
-- Model selection per card and per workflow stage. Three places can say which
-  model works a card and the most specific wins: the card (`dispatch add
-  --model opus`, or the field on the new-card form), then the stage (`model` on
-  a stage in the workflow editor, exported with the workflow), then the agent
-  role in `agents.json`. `dispatch show` names which of the three decided, and
-  `runs.model` records what actually ran so mixed-model spend is attributable.
-  An unrecognised name is reported when the workflow is validated rather than
-  refused — models outlive allowlists.
-
-## [0.1.0] — 2026-08-27
+## [0.1.0] — 2026-08-28
 
 First public release.
 
@@ -57,6 +46,11 @@ and this does not.
   into a running session; `dispatch wait` blocks on one card.
 - **A local web board** with live updates, a pipeline editor, a Needs You
   column, and a "why nothing's running" panel.
+- **Model selection per card and per workflow stage.** Three places can say
+  which model works a card and the most specific wins: the card (`dispatch add
+  --model opus`), then the stage, then the agent role in `agents.json`.
+  `dispatch show` names which of the three decided, and `runs.model` records
+  what actually ran so mixed-model spend stays attributable.
 - **A manual that ships with the tool** — `dispatch docs`, also exported to
   `docs/`.
 
