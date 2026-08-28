@@ -12,6 +12,11 @@ model is called for judgment, and a subroutine cannot halt the loop by returning
 Python 3.9+, standard library only. No services, no daemon but its own, no
 dependencies.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/board-dark.png">
+  <img alt="The dispatch board: cards moving through spec, build, qa, review, signoff and integrate, with tags, dependency counts, per-card model overrides, and spend in the header." src="docs/images/board-light.png">
+</picture>
+
 ---
 
 ## Install
