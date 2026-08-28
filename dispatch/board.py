@@ -32,6 +32,7 @@ def create(db: DB, cfg: dict[str, Any], workflows: dict[str, Any], *,
            acceptance: list[str] | None = None, parent_id: str | None = None,
            tags: list[str] | None = None, priority: int = 50,
            stage: str | None = None, agent_type: str | None = None,
+           model: str | None = None,
            scope: list[str] | None = None, budget: dict[str, Any] | None = None,
            depends_on: list[str] | None = None,
            provenance: str = "human", proposal_id: str | None = None,
@@ -45,11 +46,12 @@ def create(db: DB, cfg: dict[str, Any], workflows: dict[str, Any], *,
     entry = first_stage(workflows, card_type) or {}
     ws = {"scope": scope or []}
     db.x(
-        "INSERT INTO tasks (id,title,brief,acceptance,card_type,stage,agent_type,status,"
-        "parent_id,priority,tags,max_attempts,budget,workspace,provenance,proposal_id,"
-        "created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO tasks (id,title,brief,acceptance,card_type,stage,agent_type,"
+        "model,status,parent_id,priority,tags,max_attempts,budget,workspace,"
+        "provenance,proposal_id,created_at,updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (tid, title, brief, json.dumps(acceptance or []), card_type, stage,
-         agent_type or entry.get("agent"), QUEUED, parent_id, priority,
+         agent_type or entry.get("agent"), model or None, QUEUED, parent_id, priority,
          json.dumps(tags or []), max_attempts, json.dumps(budget or {}),
          json.dumps(ws), provenance, proposal_id, ts, ts),
     )
@@ -74,6 +76,11 @@ def all_tasks(db: DB, include_terminal: bool = True) -> list[dict[str, Any]]:
 def update(db: DB, task_id: str, actor: str = "human", **fields: Any) -> None:
     if not fields:
         return
+    if "model" in fields and not fields["model"]:
+        # the web form posts "" for a cleared field and the CLI passes None;
+        # both mean "fall back to the stage", and only NULL makes that true
+        # everywhere that reads the column.
+        fields["model"] = None
     sets, args = [], []
     for k, v in fields.items():
         sets.append(f"{k}=?")

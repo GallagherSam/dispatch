@@ -413,6 +413,8 @@ function cardEl(t) {
   chips.push('<span class="chip type"><i class="sw" style="background:' + typeColor(t.card_type) +
              '"></i>' + esc(wf.label || t.card_type) + '</span>');
   if (t.agent_type) chips.push('<span class="chip agent">' + esc(t.agent_type) + '</span>');
+  if (t.model) chips.push('<span class="chip model" title="this card overrides the model">' +
+    esc(t.model) + '</span>');
   (t.tags || []).slice(0, 3).forEach(g => chips.push('<span class="chip">#' + esc(g) + '</span>'));
   if (t.deps.length) chips.push('<span class="chip" title="waits on ' + t.deps.length +
                                 ' card(s)">⇠ ' + t.deps.length + '</span>');
@@ -890,6 +892,8 @@ async function renderBlocked() {
 
 /* -------------------------------------------------------------- workflows */
 
+const MODELS = ['opus', 'sonnet', 'haiku', 'fable'];
+
 function renderWorkflows() {
   const list = $('#wflist');
   list.innerHTML = Object.entries(WF).map(([ct, wf]) =>
@@ -911,6 +915,8 @@ function renderWorkflows() {
                     'budget_remaining', 'time_window', 'mutex_free'];
 
   ed.innerHTML =
+    '<datalist id="modelnames">' + MODELS.map(m =>
+      '<option value="' + esc(m) + '">').join('') + '</datalist>' +
     '<div class="row">' +
       '<label class="f"><span>card type id</span><input type="text" id="wfId" value="' + esc(WFSEL) + '"></label>' +
       '<label class="f"><span>label</span><input type="text" id="wfLabel" value="' + esc(wf.label || '') + '"></label>' +
@@ -949,6 +955,9 @@ function renderWorkflows() {
                  'placeholder="' + esc(gateOpts.slice(0, 4).join(', ')) + '"></label>' +
         '<label class="f"><span>lock (optional)</span>' +
           '<input type="text" data-k="lock" value="' + esc(s.lock || '') + '" placeholder="integration"></label>' +
+        '<label class="f"><span>model</span>' +
+          '<input type="text" data-k="model" list="modelnames" value="' +
+          esc(s.model || '') + '" placeholder="role default"></label>' +
         '<label class="f"><span class="plain">auto-pass rule (human stages)</span>' +
           '<input type="text" data-k="auto_pass_if" value="' + esc(s.auto_pass_if || '') + '" placeholder="small_and_green"></label>' +
         '<label class="f"><span class="plain">answer within (human stages)</span>' +
@@ -1071,6 +1080,10 @@ function newCard() {
         '<option value="' + esc(t) + '">' + esc(S.workflows[t].label || t) + '</option>').join('') +
       '</select></label>' +
       '<label class="f"><span>priority</span><input type="number" id="nPri" value="50"></label>' +
+      '<label class="f"><span>model</span>' +
+        '<input type="text" id="nModel" list="modelnames" placeholder="stage default">' +
+        '<datalist id="modelnames">' + MODELS.map(m =>
+          '<option value="' + esc(m) + '">').join('') + '</datalist></label>' +
       '<label class="f"><span>parent (optional)</span><input type="text" id="nParent" placeholder="t_xxxxxx"></label>' +
     '</div>' +
     '<label class="f"><span class="plain">brief — this is the literal prompt the agent receives</span>' +
@@ -1099,6 +1112,7 @@ function newCard() {
         body: {
           title, brief: $('#nBrief').value, card_type: $('#nType').value,
           priority: Number($('#nPri').value) || 50,
+        model: $('#nModel').value.trim() || null,
           parent_id: $('#nParent').value.trim() || null,
           acceptance: lines('nAcc'), scope: lines('nScope'),
           depends_on: $('#nDeps').value.split(',').map(s => s.trim()).filter(Boolean),

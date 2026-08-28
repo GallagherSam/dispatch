@@ -112,7 +112,7 @@ faster than this project will. Substitutions: `{agent_prompt_file}`
 | file | what it is |
 |---|---|
 | `workflows.json` | card types and their pipelines; commit this |
-| `agents.json` | model and tool allowlist per role |
+| `agents.json` | model and tool allowlist per role — the floor a stage or a card can override |
 | `agents/*.md` | the prompt for each role — the cheapest quality lever here |
 | `settings.json` | what agents may run inside their worktree |
 | `gates/*` | your own gates |

@@ -192,4 +192,10 @@ def validate(workflows: dict[str, Any], cfg: dict[str, Any],
             last = order[sid]
             if e.get("agent") not in known_agents:
                 problems.append(f"{ct}: stage '{sid}' names unknown agent '{e.get('agent')}'")
+            from dispatch.config import MODEL_ALIASES, looks_like_a_model
+            if not looks_like_a_model(e.get("model")):
+                problems.append(
+                    f"{ct}: stage '{sid}' asks for model '{e['model']}' — "
+                    f"expected one of {', '.join(MODEL_ALIASES)} or a full "
+                    f"`claude-…` id")
     return problems

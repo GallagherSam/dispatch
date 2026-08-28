@@ -410,6 +410,19 @@ def stale_settings(cfg: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+#: Aliases the Claude CLI accepts. Full ids (`claude-opus-5`, dated variants)
+#: are accepted too, so this is a hint rather than a gate — models outlive
+#: allowlists, and refusing an unknown one would age badly.
+MODEL_ALIASES = ("opus", "sonnet", "haiku", "fable")
+
+
+def looks_like_a_model(name: str | None) -> bool:
+    if not name:
+        return True
+    n = str(name).strip().lower()
+    return n in MODEL_ALIASES or n.startswith("claude-") or "/" in n or ":" in n
+
+
 def stage_ids(cfg: dict[str, Any]) -> list[str]:
     return [s["id"] for s in cfg["stages"]]
 

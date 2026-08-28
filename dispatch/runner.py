@@ -289,6 +289,28 @@ def _render(cmd_template: list[str], subs: dict[str, str]) -> list[str]:
     return out
 
 
+DEFAULT_MODEL = "sonnet"
+
+
+def resolve_model(workflows: dict[str, Any], agents: dict[str, Any],
+                  task: dict[str, Any]) -> str:
+    """Card beats stage beats agent role.
+
+    The card is most specific — "this one needs Opus" — and the stage is where
+    you say "review is always worth the better model" once instead of on every
+    card. The agent role is the floor.
+    """
+    from dispatch.workflows import stage_entry
+
+    if task.get("model"):
+        return str(task["model"])
+    entry = stage_entry(workflows, task.get("card_type"), task.get("stage")) or {}
+    if entry.get("model"):
+        return str(entry["model"])
+    spec = agents.get(task.get("agent_type") or "", {})
+    return str(spec.get("model") or DEFAULT_MODEL)
+
+
 def agent_prompt_file(root: str, agent_type: str, agents: dict[str, Any]) -> str:
     spec = agents.get(agent_type) or {}
     fn = spec.get("prompt_file")
@@ -331,10 +353,11 @@ def launch(db: DB, root: str, cfg: dict[str, Any], workflows: dict[str, Any],
         f.write(prompt)
 
     spec = agents.get(agent_type, {})
+    model = resolve_model(workflows, agents, task)
     subs = {
         "agent_prompt_file": agent_prompt_file(root, agent_type, agents),
         "allowed_tools": spec.get("allowed_tools", "Read,Write,Edit,Grep,Glob,Bash"),
-        "model": spec.get("model") or "sonnet",
+        "model": model,
         "task_id": task["id"],
         "stage": task["stage"],
         "worktree": cwd,
@@ -370,12 +393,12 @@ def launch(db: DB, root: str, cfg: dict[str, Any], workflows: dict[str, Any],
     if SB.enabled(cfg):
         cmd, sandbox_meta = SB.wrap(cfg, cmd, cwd, log_dir)
 
-    db.x("INSERT INTO runs (id,task_id,stage,agent_type,attempt,status,log_dir,started_at) "
-         "VALUES (?,?,?,?,?,?,?,?)",
-         (run_id, task["id"], task["stage"], agent_type, task["attempts"] + 1,
-          "running", log_dir, now()))
+    db.x("INSERT INTO runs (id,task_id,stage,agent_type,model,attempt,status,"
+         "log_dir,started_at) VALUES (?,?,?,?,?,?,?,?,?)",
+         (run_id, task["id"], task["stage"], agent_type, model,
+          task["attempts"] + 1, "running", log_dir, now()))
     db.emit("run.started", task["id"], run_id=run_id, stage=task["stage"],
-            agent=agent_type, sandboxed=bool(sandbox_meta),
+            agent=agent_type, model=model, sandboxed=bool(sandbox_meta),
             sandbox=sandbox_meta.get("backend"),
             cmd=" ".join(shlex.quote(c) for c in cmd))
 
