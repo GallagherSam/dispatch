@@ -38,9 +38,36 @@ jobs:
           git config --global user.email ci@example.com
           git config --global user.name CI
           git config --global init.defaultBranch master
+      - name: poison the agent binaries so a real model call cannot hide
+        # The suite stubs the agent in the test base class, which is a property
+        # of the code rather than a guarantee. A test added later that builds
+        # its own config would reach a real `claude` — billing the maintainer
+        # from CI and, worse, passing. These shims make that a loud failure.
+        run: |
+          mkdir -p "$RUNNER_TEMP/poison"
+          for b in claude srt; do
+            printf '#!/bin/sh\necho "$0 $*" >> "$AGENT_CALL_MARKER"\nexit 97\n' \
+              > "$RUNNER_TEMP/poison/$b"
+            chmod +x "$RUNNER_TEMP/poison/$b"
+          done
+          echo "$RUNNER_TEMP/poison" >> "$GITHUB_PATH"
+          echo "AGENT_CALL_MARKER=$RUNNER_TEMP/agent-was-called" >> "$GITHUB_ENV"
+
       - run: python -m unittest discover -s tests -t . -v
         env:
           NO_COLOR: "1"
+          # Explicitly empty: an inherited key is what made agent runs bill the
+          # API instead of the subscription once already.
+          ANTHROPIC_API_KEY: ""
+
+      - name: no unit test may call a model
+        run: |
+          if [ -f "$AGENT_CALL_MARKER" ]; then
+            echo "::error::a unit test invoked a real agent — it belongs in an integration test"
+            cat "$AGENT_CALL_MARKER"
+            exit 1
+          fi
+          echo "no agent binary was invoked"
 
   confinement:
     # The sandbox is the one part that cannot be proved by inspecting argv.
@@ -107,3 +134,32 @@ jobs:
         with:
           name: dist
           path: dist/
+
+  ci:
+    # The one check to require in branch protection.
+    #
+    # The matrix jobs are named `test (macos-latest, 3.13)` and change shape
+    # whenever a Python version or an OS is added. A required check that no
+    # longer exists blocks every PR forever; one that was renamed away stops
+    # being required and nobody notices. This name never changes.
+    if: always()
+    needs: [lint, test, confinement, package]
+    runs-on: ubuntu-latest
+    steps:
+      - name: every job must have actually passed
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          # A *skipped* required check counts as success on GitHub, and a
+          # failed dependency skips this job rather than failing it — so the
+          # results are asserted against, never assumed. Reading the structured
+          # `needs` rather than a joined string means no dependence on shell
+          # word-splitting, and the offending job gets named.
+          needs = json.loads(r"""${{ toJSON(needs) }}""")
+          for job, v in sorted(needs.items()):
+              print(f"  {job:<12} {v['result']}")
+          bad = sorted(j for j, v in needs.items() if v["result"] != "success")
+          if bad:
+              print(f"::error::did not pass: {', '.join(bad)}")
+              sys.exit(1)
+          EOF
