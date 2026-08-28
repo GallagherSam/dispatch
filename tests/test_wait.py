@@ -310,11 +310,11 @@ class TestFinalTransitionIsReported(BoardCase):
             # never happened at all. Two different bugs, one message.
             err: list[BaseException] = []
 
-            def finish(tid=a):
+            def finish(tid=a, err=err):
                 try:
                     time.sleep(0.03)
                     B.update(self.db, tid, status=B.DONE)
-                except BaseException as e:      # noqa: BLE001
+                except BaseException as e:
                     err.append(e)
 
             th = threading.Thread(target=finish, daemon=True)
