@@ -4,6 +4,7 @@ import urllib.error
 import urllib.request
 
 from dispatch import board as B
+from dispatch.config import load_config, paths
 from dispatch.server import serve
 from tests.helpers import BoardCase
 
@@ -237,3 +238,34 @@ class TestBoundaries(ServerCase):
                                     "Origin": f"http://{host}"})
         with urllib.request.urlopen(req, timeout=10) as r:
             self.assertEqual(r.status, 200)
+
+
+
+class TestConfigPutKeepsWhatItIsNotChanging(ServerCase):
+
+    # REGRESSION: the handler did `{**cfg, **body}`, so a PUT naming one key
+    # inside a section replaced the whole section. It hid well: load_config
+    # deep-merges against the defaults on the way back in, so anything still
+    # at its default was quietly restored and only deliberately-changed
+    # settings were lost — silently, back to default.
+    def test_a_partial_section_does_not_reset_its_siblings(self):
+        self.send("PUT", "/api/config",
+                  {"scheduler": {"max_concurrent": 8, "tick_seconds": 2.0}})
+        self.send("PUT", "/api/config", {"scheduler": {"paused": True}})
+        sched = load_config(self.root)["scheduler"]
+        self.assertEqual(sched["max_concurrent"], 8,
+                         "a partial PUT reset a customised sibling")
+        self.assertEqual(sched["tick_seconds"], 2.0)
+        self.assertTrue(sched["paused"])
+
+    def test_what_lands_on_disk_is_the_whole_config(self):
+        self.send("PUT", "/api/config", {"scheduler": {"paused": True}})
+        with open(paths(self.root)["config"]) as f:
+            on_disk = json.load(f)
+        self.assertIn("max_concurrent", on_disk["scheduler"],
+                      "the section was written back truncated")
+
+    def test_a_scalar_is_still_replaced_not_merged(self):
+        self.send("PUT", "/api/config", {"scheduler": {"max_concurrent": 8}})
+        self.send("PUT", "/api/config", {"scheduler": {"max_concurrent": 2}})
+        self.assertEqual(load_config(self.root)["scheduler"]["max_concurrent"], 2)

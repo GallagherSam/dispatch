@@ -257,6 +257,12 @@ def _deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+#: Public alias — the board's config PUT needs exactly this merge, and
+#: reaching for the underscore name from another module invites someone to
+#: "tidy" it back to a shallow one.
+deep_merge = _deep_merge
+
+
 def load_config(root: str) -> dict[str, Any]:
     p = paths(root)["config"]
     if not os.path.exists(p):

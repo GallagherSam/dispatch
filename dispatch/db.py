@@ -123,6 +123,20 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_runs_task ON runs(task_id);
 
+CREATE TABLE IF NOT EXISTS arbiter_calls (
+    id           TEXT PRIMARY KEY,
+    -- nullable on purpose: adjudicating a proposal that came from no card
+    -- still costs money, and dropping those is how the total drifts
+    task_id      TEXT,
+    purpose      TEXT NOT NULL,      -- judge_acceptance | adjudicate | triage
+    model        TEXT,
+    outcome      TEXT NOT NULL,      -- ok | unconfigured | unreachable | unreadable
+    usd          REAL,
+    duration_s   REAL,
+    created_at   REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_arbiter_task ON arbiter_calls(task_id);
+
 CREATE TABLE IF NOT EXISTS gate_runs (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id      TEXT NOT NULL,

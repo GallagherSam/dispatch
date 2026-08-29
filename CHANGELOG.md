@@ -5,6 +5,34 @@ and [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`arbiter_judges` no longer passes a card when it cannot reach a model.**
+  A crash, a timeout or an empty reply returned `pass`, which made the only
+  gate that costs money the only gate a network blip could walk straight
+  through. It now separates the reasons: a transient failure defers and
+  retries three times, an unreadable reply or a missing arbiter escalates.
+  Deferring is bounded because an unbounded retry on a condition that never
+  changes is a silent stall.
+- **Arbiter spend is recorded rather than discarded.** `total_cost_usd` was
+  parsed off every call and thrown away with the envelope, so judgments,
+  adjudications and triage were invisible to the board total, to subtree
+  budgets and to `budget_remaining`. Agent runs and arbiter calls are counted
+  separately — a run still means an agent worked a card.
+- **The arbiter's JSON extractor no longer counts braces.** One unbalanced
+  brace inside a string ended the object early, and since an unreadable reply
+  passed, a model writing `"missing } in config"` sent the card through the
+  acceptance gate. It uses the stdlib decoder now.
+- **`PUT /api/config` merges instead of replacing sections.** A body naming
+  one key inside a section wrote only that key to disk. It hid well: the
+  defaults are merged back in on read, so only settings someone had
+  deliberately changed were lost, silently, back to default.
+
+### Changed
+
+- SECURITY.md enumerates what the board can do without authenticating, rather
+  than only noting that it has no login.
+
 ## [0.1.0] — 2026-08-28
 
 First public release.

@@ -17,8 +17,22 @@ not want a mistake to reach.
 | **`diff_scope` gate** | Rejects a diff touching files outside the globs a card declared. | After the fact. It is the second net, not the first. |
 | **`no_stray_writes` gate** | Catches an agent writing into the repo root instead of its worktree. | Only matters when confinement is off. |
 | **`no_secrets` gate** | Escalates when added lines look like credentials. | Pattern matching. It will miss things. |
-| **Board HTTP server** | Binds loopback by default and refuses cross-origin writes. | Has **no login**. `--host tailscale` puts it on your tailnet, where your ACLs are the only access control. Never expose it publicly. |
+| **Board HTTP server** | Binds loopback by default and refuses cross-origin writes. | Has **no login**, and the write surface is larger than that sounds — see below. `--host tailscale` puts it on your tailnet, where your ACLs are the only access control. Never expose it publicly. |
 | **Budgets and the expansion alarm** | Cap spend per subtree and per board, and pause when the board grows faster than it shrinks. | Advisory against a runaway, not a security control. |
+
+### What the board can do without authenticating
+
+Anyone who can reach the port can create cards, respond to checkpoints and
+proposals, pause or resume the scheduler, edit workflows, import a workflow
+file, rewrite `config.json` and `agents.json`, and call `dispatch intent` —
+which starts a planner run and **spends money**. There is no read-only mode.
+
+The same-origin check stops a web page you visit from driving your board; it
+is not authentication, and it does not apply to anything that can make a
+direct request. On loopback that boundary is your machine's user account,
+which is a reasonable place to draw it for a local tool. On a tailnet it is
+your ACLs, and nothing else — so treat `--host tailscale` as granting every
+capability above to everyone who can route to that address.
 
 ## Things worth knowing before you run it
 

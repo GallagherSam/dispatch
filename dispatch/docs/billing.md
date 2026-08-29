@@ -47,6 +47,19 @@ API, not a charge. It is still the best available proxy for how much a card has
 consumed, and `budget_remaining` and the subtree budgets use it, so the
 containment rules work either way. Just do not read the total as a bill.
 
+### Agent runs and arbiter calls are counted separately
+
+Two things spend money: agents working cards, and the arbiter judging them.
+The totals include both; the run count is agents only.
+
+    spend     $17.10 over 15 run(s), 4 arbiter call(s) $0.36
+
+A run means an agent worked a card, so counting a judgment as a run would make
+the number mean less, not more. Arbiter spend used to be discarded entirely —
+it was invisible to this figure, to subtree budgets and to `budget_remaining` —
+so a board with `arbiter_judges` on a stage was spending more than it said.
+`dispatch status` breaks the two out whenever any arbiter call has happened.
+
 Rate limits are the real ceiling on a subscription. Teach
 `.dispatch/gates/quota.sh` to print your remaining percentage and the
 `quota_above` gate will hold cards rather than burning through it — see

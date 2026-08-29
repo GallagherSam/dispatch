@@ -157,8 +157,7 @@ def _g_budget_remaining(ctx, args) -> Verdict:
 
     total_cap = cfg.get("containment", {}).get("total_budget_usd")
     if total_cap is not None:
-        row = db.q1("SELECT COALESCE(SUM(usd),0) AS usd FROM runs")
-        total = float(row["usd"] or 0.0)
+        total = B.spend(db)["usd"]
         if total >= float(total_cap):
             return Verdict(ESCALATE,
                            f"the board has spent ${total:.2f} of its "

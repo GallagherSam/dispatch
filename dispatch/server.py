@@ -20,6 +20,7 @@ from dispatch import board as B
 from dispatch import proposals as P
 from dispatch import workflows as W
 from dispatch.config import (
+    deep_merge,
     load_agents,
     load_config,
     save_agents,
@@ -64,7 +65,7 @@ def snapshot(root: str, db: DB) -> dict[str, Any]:
         checkpoints.append(d)
 
     ratio, created, done = P.expansion_ratio(db, cfg)
-    spent = db.q1("SELECT COALESCE(SUM(usd),0) usd, COUNT(*) n FROM runs")
+    spent = B.spend(db)
 
     return {
         "config": cfg,
@@ -82,8 +83,11 @@ def snapshot(root: str, db: DB) -> dict[str, Any]:
             "max_concurrent": cfg["scheduler"].get("max_concurrent"),
         },
         "stats": {
-            "usd": round(float(spent["usd"] or 0), 2),
-            "runs": spent["n"],
+            "usd": round(spent["usd"], 2),
+            "runs": spent["runs"],
+            "agent_usd": round(spent["agent_usd"], 2),
+            "arbiter_usd": round(spent["arbiter_usd"], 2),
+            "arbiter_calls": spent["arbiter_calls"],
             "expansion_ratio": round(ratio, 2),
             "created_recent": created,
             "done_recent": done,
@@ -352,7 +356,14 @@ class Handler(BaseHTTPRequestHandler):
                                    "problems": W.validate(wf, cfg,
                                                           load_agents(self.root))})
             if p == "/api/config":
-                save_config(self.root, {**cfg, **body})
+                # A shallow merge here replaced whole sections: PUT
+                # {"scheduler": {"paused": true}} wrote exactly that to disk
+                # and everything else in `scheduler` was gone. It looked
+                # harmless because `load_config` deep-merges against the
+                # defaults on the way back in, so anything still at its
+                # default was quietly restored — only settings someone had
+                # deliberately changed were lost, silently, back to default.
+                save_config(self.root, deep_merge(cfg, body))
                 return self._json({"ok": True})
             if p == "/api/agents":
                 save_agents(self.root, body)
