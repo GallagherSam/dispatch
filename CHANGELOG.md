@@ -5,6 +5,11 @@ and [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-30
+
+Two additions from use, and no change to any existing behaviour. The minor
+bump rather than a patch because both are new functionality.
+
 ### Added
 
 - **Board filters.** Toggles for Done and Cancelled, plus a search box over
@@ -138,6 +143,7 @@ and this does not.
 - Linux confinement is exercised in CI; macOS has additionally been used in
   anger.
 
-[Unreleased]: https://github.com/GallagherSam/dispatch/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/GallagherSam/dispatch/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/GallagherSam/dispatch/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/GallagherSam/dispatch/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/GallagherSam/dispatch/releases/tag/v0.1.0
