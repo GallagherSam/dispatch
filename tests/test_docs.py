@@ -239,3 +239,43 @@ class TestExportedDocsStayInSync(BoardCase):
         with open(os.path.join(self.REPO, "README.md")) as f:
             lines = len(f.read().splitlines())
         self.assertLess(lines, 160, f"README is drifting long ({lines})")
+
+
+class TestTheVersionIsStatedOnce(BoardCase):
+    needs_git = False
+
+    # The release workflow refuses to build when the tag and pyproject
+    # disagree, which is the right place to catch it and a slow one — you find
+    # out after tagging. `channel.py` carried a third hardcoded copy that
+    # nothing checked at all, so a channel could announce a version the CLI
+    # had not been for two releases.
+    def test_pyproject_and_the_package_agree(self):
+        import pathlib
+        import sys
+
+        from dispatch import __version__
+        if sys.version_info >= (3, 11):
+            import tomllib
+        else:
+            self.skipTest("tomllib is 3.11+; the release job runs 3.12")
+        root = pathlib.Path(__file__).parent.parent
+        with open(root / "pyproject.toml", "rb") as f:
+            declared = tomllib.load(f)["project"]["version"]
+        self.assertEqual(declared, __version__,
+                         "pyproject and dispatch.__version__ disagree — the "
+                         "release build will refuse the tag")
+
+    def test_nothing_else_hardcodes_a_version(self):
+        import pathlib
+        import re
+
+        pkg = pathlib.Path(__file__).parent.parent / "dispatch"
+        offenders = []
+        for py in pkg.rglob("*.py"):
+            if py.name == "__init__.py":
+                continue
+            for n, line in enumerate(py.read_text().splitlines(), 1):
+                if re.search(r'"\d+\.\d+\.\d+"', line) and "version" in line.lower():
+                    offenders.append(f"{py.name}:{n}: {line.strip()}")
+        self.assertEqual(offenders, [],
+                         "import __version__ instead of restating it")

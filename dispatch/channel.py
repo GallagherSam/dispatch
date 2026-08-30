@@ -25,6 +25,7 @@ import sys
 import threading
 from typing import Any
 
+from dispatch import __version__
 from dispatch.config import paths
 from dispatch.db import DB
 
@@ -259,7 +260,7 @@ class Channel:
                 "protocolVersion": version,
                 # this key is what makes it a channel
                 "capabilities": {"experimental": {"claude/channel": {}}},
-                "serverInfo": {"name": "dispatch", "version": "0.1.0"},
+                "serverInfo": {"name": "dispatch", "version": __version__},
                 "instructions": INSTRUCTIONS,
             })
             return
