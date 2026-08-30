@@ -5,6 +5,11 @@ and [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-08-30
+
+Four bugs found by review and five by a 354-run session on a real project.
+Nothing here changes an interface; it is all things that were quietly wrong.
+
 ### Fixed
 
 - **`arbiter_judges` no longer passes a card when it cannot reach a model.**
@@ -118,5 +123,6 @@ and this does not.
 - Linux confinement is exercised in CI; macOS has additionally been used in
   anger.
 
-[Unreleased]: https://github.com/GallagherSam/dispatch/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/GallagherSam/dispatch/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/GallagherSam/dispatch/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/GallagherSam/dispatch/releases/tag/v0.1.0

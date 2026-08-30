@@ -1,6 +1,6 @@
 [project]
 name = "dispatch-board"
-version = "0.1.0"
+version = "0.1.1"
 description = "A kanban board that drives a fleet of coding agents. The loop is code; the model is a subroutine."
 readme = "README.md"
 requires-python = ">=3.9"
