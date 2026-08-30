@@ -5,6 +5,6 @@ opinion about whether the work is finished.  An LLM is called as a subroutine
 for judgment calls, and a subroutine cannot halt the loop by returning.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 DISPATCH_DIR = ".dispatch"
