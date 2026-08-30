@@ -56,4 +56,17 @@ with its own scheduler process, port, and database.
 
 `dispatch down` stops the one for the repo you are standing in.
 
+
+## Filtering the board
+
+A board that has been running for days fills with landed and abandoned cards.
+The **Done** and **Cancelled** toggles hide them, and the search box narrows by
+title, tag or id. The choice is remembered per browser.
+
+Hiding is never silent: the bar says how many cards are out of view, each
+column head reads `shown/total`, and a column emptied by a filter says so
+rather than reading `empty`. A filtered board that looks like an unfiltered one
+is how you conclude a card was never created.
+
+
 Next: `dispatch docs billing`

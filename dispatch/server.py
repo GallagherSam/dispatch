@@ -88,6 +88,8 @@ def snapshot(root: str, db: DB) -> dict[str, Any]:
             "agent_usd": round(spent["agent_usd"], 2),
             "arbiter_usd": round(spent["arbiter_usd"], 2),
             "arbiter_calls": spent["arbiter_calls"],
+            "in_flight_runs": spent["in_flight"],
+            "in_flight_since": spent["in_flight_since"],
             "expansion_ratio": round(ratio, 2),
             "created_recent": created,
             "done_recent": done,

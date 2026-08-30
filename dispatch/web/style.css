@@ -575,3 +575,29 @@ ul.crit li{color:var(--ink-2)}
 /* A model chip appears only when a card overrides the default, so its presence
    is the signal. */
 .chip.model{color:var(--info);border-color:var(--info-edge)}
+
+/* board filters ------------------------------------------------------- */
+.boardbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 16px 0;
+}
+.filt{
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  font:500 12px/1 var(--ui);color:var(--ink-3);
+  border:1px solid var(--rule);border-radius:999px;padding:6px 11px 6px 9px;
+  background:var(--surface);user-select:none;
+}
+.filt:hover{border-color:var(--rule-strong);color:var(--ink-2)}
+.filt.on{border-color:var(--info-edge);color:var(--info);background:var(--surface-2)}
+.filt input{accent-color:var(--info);margin:0;width:13px;height:13px}
+.filt-note{font:500 12px/1 var(--ui);color:var(--ink-3);opacity:0}
+.filt-note.on{opacity:1;color:var(--info)}
+#fText{
+  margin-left:auto;min-width:210px;
+  font:400 12px/1 var(--ui);color:var(--ink-1);
+  background:var(--surface);border:1px solid var(--rule);border-radius:999px;
+  padding:7px 12px;
+}
+#fText:focus{outline:none;border-color:var(--info-edge)}
+.colhead .n .of{color:var(--ink-3);font-weight:400}
+#spend .pending{color:var(--info);font-weight:500;margin-left:2px}

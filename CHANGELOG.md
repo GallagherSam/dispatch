@@ -5,6 +5,21 @@ and [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **Board filters.** Toggles for Done and Cancelled, plus a search box over
+  title, tag and id. A long-running board fills with landed and abandoned
+  cards; cancelled cards keep the stage they died at, so they scatter across
+  the columns rather than collecting anywhere. The choice is remembered per
+  browser. Hiding is never silent — the bar says how many cards are out of
+  view, column heads read `shown/total`, and a column emptied by a filter says
+  so instead of reading `empty`.
+- **Spend says what it does not yet know.** A run's cost does not exist until
+  the run ends: the agent CLI reports `total_cost_usd` once, on its final
+  event, so a board with agents working always shows a figure that is behind.
+  The board header and `dispatch status` now say how many runs are still
+  uncosted and how long the oldest has been going.
+
 ## [0.1.1] — 2026-08-30
 
 Four bugs found by review and five by a 354-run session on a real project.
