@@ -5,6 +5,15 @@ and [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Orphaned runs no longer count as in flight.** `status='running'` is not
+  evidence an agent is working: a run whose process dies without reaching the
+  finish path keeps that status forever. A real board carried eleven such
+  rows, the oldest 86 hours old, which made the new in-flight indicator read
+  `+11 still running` on an idle board. The lease is the authority — it names
+  the run and it expires — so that is what is counted now.
+
 ## [0.2.0] — 2026-08-30
 
 Two additions from use, and no change to any existing behaviour. The minor

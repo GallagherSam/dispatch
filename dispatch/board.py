@@ -233,10 +233,18 @@ def spend(db: DB, task_ids: list[str] | None = None) -> dict[str, Any]:
     # "$X, and N runs have not reported yet" rather than a number that quietly
     # lags. `in_flight_since` is the oldest unfinished run, which is what
     # tells you whether the gap is seconds or half an hour.
-    inflight_where = (where + " AND status='running'") if where else \
-        " WHERE status='running'"
-    f = db.q1(f"SELECT COUNT(*) n, MIN(started_at) since FROM runs{inflight_where}",
-              args)
+    # `status='running'` is not enough: a run whose process dies without
+    # reaching the finish path keeps that status forever. A real board had
+    # eleven such rows, the oldest 86 hours old, which would have read as
+    # "+11 still running" — alarming, and false. The lease is the authority on
+    # whether an agent is actually holding the card, and it expires.
+    live = (where + " AND r.status='running'") if where else \
+        " WHERE r.status='running'"
+    f = db.q1(
+        "SELECT COUNT(*) n, MIN(r.started_at) since FROM runs r "
+        "JOIN leases l ON l.run_id = r.id AND l.expires_at > ?"
+        + live.replace("task_id", "r.task_id"),
+        (now(), *args))
     a = db.q1("SELECT COALESCE(SUM(usd),0) usd, COUNT(*) n FROM arbiter_calls"
               + where, args)
     agent, arb = float(r["usd"] or 0.0), float(a["usd"] or 0.0)
