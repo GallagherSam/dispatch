@@ -121,7 +121,7 @@ terminal, which is what agents read. Start with
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests -t .     # 535 tests, ~65s, no model calls
+python3 -m unittest discover -s tests -t .     # 575 tests, ~68s, no model calls
 ```
 
 The suite drives the real scheduler, real gates and real git worktrees against a

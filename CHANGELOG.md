@@ -28,6 +28,34 @@ and [semantic versioning](https://semver.org).
   defaults are merged back in on read, so only settings someone had
   deliberately changed were lost, silently, back to default.
 
+From a field report after a 354-run session: the pipeline's thinking stages
+were excellent and its acting stages were blocked.
+
+- **The integrate stage was told to do something the sandbox forbids.** Step 1
+  of the shipped integrator prompt was "rebase this worktree's branch", but a
+  worktree's git metadata lives in the main repo's `.git/worktrees/`, outside
+  the writable region — so every integrate either fast-forwarded by luck or
+  spent real money hand-materialising a merge that was then thrown away.
+  dispatch already lands cards itself, unsandboxed, from the scheduler. The
+  prompt now says so and asks for a mergeability verdict instead.
+- **The reviewer could not run the test suite.** Its shell was restricted to
+  `Bash(git *)`, so the stage whose job is verification could not check the
+  criterion that matters most, and said so in every handback. Withholding
+  Write and Edit is what keeps that role from authoring; withholding the shell
+  only moved the work to the operator.
+- **A killed test run reported as a failing one.** Credentials expiring
+  mid-suite returned the card as "tests failed (exit 1)" over a wall of passes
+  and no failure anywhere. The gate now names that at the top of the evidence.
+- **Agents were not told what landed after they branched.** A card branches
+  when it starts and reviews an hour later, so reviewers reported real work as
+  broken — a cross-reference that "does not exist", a payoff that "doesn't
+  show". The brief now names the merge-base distance and what changed.
+- **Why a card cannot land is visible where people look.** The reason reached
+  `dispatch blocked` and nowhere else; `ls` and `status` show it now.
+
+### Added
+- `dispatch cancel --reason`, recorded on the card and in the event log.
+
 ### Changed
 
 - SECURITY.md enumerates what the board can do without authenticating, rather

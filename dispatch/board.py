@@ -598,13 +598,19 @@ def resolve_checkpoint(db: DB, cfg: dict[str, Any], workflows: dict[str, Any],
         db.emit("task.rejected", tid, actor=actor, back_to=back)
 
 
-def cancel(db: DB, task_id: str, actor: str = "human", cascade: bool = True) -> None:
+def cancel(db: DB, task_id: str, actor: str = "human", cascade: bool = True,
+           reason: str | None = None) -> None:
+    """Cancelling three superseded cards and leaving no trace of why is how a
+    board becomes unreadable a week later. The reason goes on the card and in
+    the log."""
     ids = subtree_ids(db, task_id) if cascade else [task_id]
     for i in ids:
-        db.x("UPDATE tasks SET status=?, updated_at=? WHERE id=? AND status NOT IN "
-             "('done','cancelled')", (CANCELLED, now(), i))
+        db.x("UPDATE tasks SET status=?, block_reason=?, updated_at=? WHERE id=? "
+             "AND status NOT IN ('done','cancelled')",
+             (CANCELLED, reason, now(), i))
         db.x("DELETE FROM leases WHERE task_id=?", (i,))
-    db.emit("task.cancelled", task_id, actor=actor, cascade=cascade, count=len(ids))
+    db.emit("task.cancelled", task_id, actor=actor, cascade=cascade,
+            count=len(ids), reason=reason)
 
 
 def acquire_lock(db: DB, name: str, task_id: str) -> bool:

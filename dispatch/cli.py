@@ -438,6 +438,19 @@ def cmd_ls(args) -> int:
            f"{C['dim']}{t['card_type']:<12}{C['0']} {t['title'][:58]}")
     if any(t["id"] in leased for t in tasks):
         _p(f"{C['dim']}* an agent is running on it{C['0']}")
+    # A card sitting in `merging` looks identical whether it is about to land
+    # or has been stuck for an hour on something only it knows about. The
+    # reason was reachable through `blocked` and nowhere an operator actually
+    # looks, which made "why has nothing moved" the most expensive question on
+    # the board.
+    stuck = [t for t in tasks
+             if t["status"] == B.MERGING and (t.get("defer_reason") or "")]
+    if stuck:
+        _p()
+        for t in stuck:
+            why = t["defer_reason"]
+            why = why[len("merge: "):] if why.startswith("merge: ") else why
+            _p(f"{C['y']}{t['id']} cannot land{C['0']} — {why.splitlines()[0][:90]}")
     return 0
 
 
@@ -606,7 +619,8 @@ def cmd_cancel(args) -> int:
             continue
 
         doomed = [tid] + (live if args.cascade else [])
-        B.cancel(db, tid, cascade=bool(args.cascade))
+        B.cancel(db, tid, cascade=bool(args.cascade),
+                 reason=getattr(args, "reason", None))
         _p(f"{C['g']}cancelled{C['0']} {', '.join(doomed)}")
     return rc
 
@@ -983,6 +997,12 @@ def cmd_status(args) -> int:
         _p(f"    {C['g']}●{C['0']} {r['task_id']} {r['stage']:<10} "
            f"{(t['title'][:44] if t else '')}")
     _p("  cards     " + "  ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    for t in db.q("SELECT id,defer_reason FROM tasks WHERE status='merging' "
+                  "AND defer_reason IS NOT NULL AND defer_reason != ''"):
+        why = t["defer_reason"]
+        why = why[len("merge: "):] if why.startswith("merge: ") else why
+        _p(f"  {C['y']}stuck{C['0']}     {t['id']} cannot land — "
+           f"{why.splitlines()[0][:80]}")
     total_cap = cfg.get("containment", {}).get("total_budget_usd")
     total = float(spend["usd"] or 0)
     cap_note = ""
@@ -1721,6 +1741,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="also cancel every card beneath it")
     s.add_argument("--only", action="store_true",
                    help="cancel just this card, leaving its children alone")
+    s.add_argument("--reason", help="why — recorded on the card and in the log")
     s.set_defaults(fn=cmd_cancel)
 
     s = sub.add_parser("blocked", help="why nothing is running")

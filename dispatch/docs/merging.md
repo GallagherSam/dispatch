@@ -66,4 +66,25 @@ options are the usual three: `amend` with instructions and let an agent redo it,
 
     dispatch edit t_abc123 --requeue
 
+
+## The integrate stage does not merge
+
+It cannot, and it does not need to. An agent works in a git worktree whose
+metadata lives in the main repository's `.git/worktrees/`, outside the writable
+region of its sandbox — so `git rebase`, `git commit`, or anything that writes
+an index or a ref fails with `Operation not permitted`. That is deliberate: a
+worktree that could rewrite refs could rewrite your base branch.
+
+dispatch lands the card itself, from the scheduler and outside any sandbox:
+rebase onto the base, re-run the completion gates on the rebased tree,
+fast-forward.
+
+So the integrate stage answers a question instead — *will this land cleanly,
+and if not, what should someone do about it?* A clean fast-forward needs
+nothing from it. A conflict gets a per-file account of what clashes and which
+resolution the agent would choose, which is what a human or a follow-up card
+can act on. An integrator that tries to hand-materialise a merge is burning
+money on something that gets thrown away; the shipped prompt says so.
+
+
 Next: `dispatch docs direction`

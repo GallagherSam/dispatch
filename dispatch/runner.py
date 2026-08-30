@@ -122,6 +122,41 @@ def dirty_paths(root: str) -> list[str]:
     return sorted(paths_)
 
 
+def _staleness_note(root: str, cfg: dict[str, Any],
+                    task: dict[str, Any]) -> str:
+    """Tell the agent what landed after it branched.
+
+    A card branches when it starts and reviews an hour later, by which time
+    siblings have merged. The agent sees a tree without them and reports honest
+    nonsense — a cross-reference to a file that "does not exist", a payoff that
+    "doesn't show" — because from where it stands both are true. It costs the
+    operator real time to disprove, and risks sending good work back.
+    """
+    from dispatch import merge as M
+    wt = (task.get("workspace") or {}).get("path")
+    if not wt or not os.path.isdir(wt):
+        return ""
+    try:
+        base = M.base_branch(cfg, task, root)
+        behind = _git(wt, "rev-list", "--count", f"HEAD..{base}").stdout.strip()
+        if not behind.isdigit() or int(behind) == 0:
+            return ""
+        names = _git(wt, "diff", "--name-only", f"HEAD...{base}").stdout.split()
+        subjects = _git(wt, "log", "--oneline", "--no-decorate", "-8",
+                        f"HEAD..{base}").stdout.strip()
+    except Exception:
+        return ""
+    listed = "\n".join(f"- `{n}`" for n in sorted(names)[:25])
+    more = f"\n- …and {len(names) - 25} more" if len(names) > 25 else ""
+    return (f"## Your branch is {behind} commit(s) behind `{base}`\n"
+            f"This worktree was branched before that work landed, so anything "
+            f"it added is genuinely absent here. **Do not report those "
+            f"absences as defects** — check against `{base}` before calling a "
+            f"reference dangling or an effect missing.\n\n"
+            f"Landed since you branched:\n```\n{subjects}\n```\n"
+            f"Files that differ:\n{listed}{more}")
+
+
 def commit_all(worktree: str, message: str) -> str | None:
     """Agents are told not to commit; the runner does it so every stage boundary
     is a real commit and the diff is always computable."""
@@ -210,6 +245,10 @@ def build_prompt(db: DB, root: str, cfg: dict[str, Any], workflows: dict[str, An
         parts.append("## Scope (enforced)\nYou may only modify files matching:\n" +
                      "\n".join(f"- `{g}`" for g in scope) +
                      "\n\nA diff touching anything else is rejected by a gate.")
+
+    stale = _staleness_note(root, cfg, task)
+    if stale:
+        parts.append(stale)
 
     art = _artifact_context(db, task["id"])
     if art:
