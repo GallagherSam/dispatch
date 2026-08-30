@@ -369,7 +369,19 @@ function renderTop() {
   st.innerHTML = '<span class="dot ' + dot + '"></span>' + word +
     ' · <b>' + sc.in_flight + '</b>/' + sc.max_concurrent + ' in flight';
 
-  $('#spend').innerHTML = '<b>' + usd(S.stats.usd) + '</b> · ' + S.stats.runs + ' runs';
+  // A run's cost only exists once it ends, so a board with agents working is
+  // always showing a figure that is behind. Saying by how much is the honest
+  // version of "live spend" — inventing a number from token counts would need
+  // a price table, and a stale price table reports confident nonsense.
+  const inf = S.stats.in_flight_runs || 0;
+  const pend = inf
+    ? ' <span class="pending" title="cost is reported when a run ends, not' +
+      ' while it works">+' + inf + ' running' +
+      (S.stats.in_flight_since
+        ? ' · ' + ago(S.stats.in_flight_since) : '') + '</span>'
+    : '';
+  $('#spend').innerHTML = '<b>' + usd(S.stats.usd) + '</b> · ' +
+    S.stats.runs + ' runs' + pend;
 
   const r = S.stats.expansion_ratio;
   const lim = (S.config.containment || {}).expansion_ratio_limit || 2.5;
@@ -435,6 +447,43 @@ function cardEl(t) {
   return d;
 }
 
+// Board filters. Kept in localStorage so a board you have tidied stays tidy
+// across a reload — but see `fNote`: a filter that hides cards silently is a
+// filter that makes you think work vanished.
+const FILT = {
+  done: false, cancelled: false, text: '',
+  load() {
+    try {
+      const v = JSON.parse(localStorage.getItem('dispatch.filters') || '{}');
+      this.done = !!v.done; this.cancelled = !!v.cancelled;
+    } catch (e) { /* private window, cleared storage — defaults are fine */ }
+  },
+  save() {
+    try {
+      localStorage.setItem('dispatch.filters',
+        JSON.stringify({ done: this.done, cancelled: this.cancelled }));
+    } catch (e) { /* not worth failing a render over */ }
+  },
+  // `hidden` is what a filter removes; a card matching the text box is never
+  // hidden by it, so searching for a done card still finds it.
+  hides(t) {
+    if (this.text) {
+      const hay = (t.title + ' ' + (t.id || '') + ' ' +
+                   (parseTags(t).join(' '))).toLowerCase();
+      if (!hay.includes(this.text)) return true;
+    }
+    if (this.done && t.status === 'done') return true;
+    if (this.cancelled && t.status === 'cancelled') return true;
+    return false;
+  },
+};
+
+function parseTags(t) {
+  try {
+    return typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || []);
+  } catch (e) { return []; }
+}
+
 function renderBoard() {
   const wrap = $('#columns');
   wrap.innerHTML = '';
@@ -445,26 +494,35 @@ function renderBoard() {
       attn[t.stage] = (attn[t.stage] || 0) + 1;
   });
 
+  let hidden = 0;
   S.stages.forEach(st => {
     const col = document.createElement('div');
     col.className = 'col';
     col.dataset.stage = st.id;
-    const items = S.tasks.filter(t => t.stage === st.id &&
+    const all = S.tasks.filter(t => t.stage === st.id &&
       !(st.id === 'done' && t.status === 'cancelled'));
+    const items = all.filter(t => !FILT.hides(t));
+    hidden += all.length - items.length;
     const wip = st.wip || 0;
     const inFlight = live[st.id] || 0;
+    const nShown = items.length === all.length
+      ? String(all.length)
+      : items.length + '<span class="of">/' + all.length + '</span>';
 
     col.innerHTML =
       '<h3 class="colhead">' +
         '<span class="colname">' + esc(st.label) + '</span>' +
         (attn[st.id] ? '<span class="flag" title="cards waiting on you">' + attn[st.id] + ' ⚑</span>' : '') +
-        '<span class="n" title="cards in this column">' + items.length + '</span>' +
+        '<span class="n" title="cards in this column">' + nShown + '</span>' +
         (wip ? '<span class="wip' + (inFlight >= wip ? ' over' : '') + '" title="work in progress limit">' +
                inFlight + '/' + wip + '</span>' : '') +
       '</h3><div class="cards"></div>';
 
     const box = $('.cards', col);
-    if (!items.length) box.innerHTML = '<div class="empty">empty</div>';
+    if (!items.length) {
+      box.innerHTML = '<div class="empty">' +
+        (all.length ? 'all ' + all.length + ' hidden' : 'empty') + '</div>';
+    }
     items.forEach(t => box.appendChild(cardEl(t)));
 
     col.ondragover = e => { e.preventDefault(); col.classList.add('dragover'); };
@@ -482,7 +540,41 @@ function renderBoard() {
     };
     wrap.appendChild(col);
   });
+  // Say what is being hidden. A filtered board that looks like an unfiltered
+  // one is how you conclude a card was never created.
+  const note = $('#fNote');
+  if (note) {
+    note.textContent = hidden ? hidden + ' card' + (hidden === 1 ? '' : 's') +
+      ' hidden' : '';
+    note.classList.toggle('on', !!hidden);
+  }
   updateBoardEdges();
+}
+
+function wireFilters() {
+  FILT.load();
+  const done = $('#fDone'), cancelled = $('#fCancelled'), text = $('#fText');
+  if (!done) return;
+  done.checked = FILT.done;
+  cancelled.checked = FILT.cancelled;
+  // The labels say what the box does, so they read as "hide Done" when ticked
+  const sync = () => {
+    done.parentElement.classList.toggle('on', done.checked);
+    cancelled.parentElement.classList.toggle('on', cancelled.checked);
+  };
+  sync();
+  done.onchange = () => { FILT.done = done.checked; FILT.save(); sync(); renderBoard(); };
+  cancelled.onchange = () => {
+    FILT.cancelled = cancelled.checked; FILT.save(); sync(); renderBoard();
+  };
+  let t = null;
+  text.oninput = () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      FILT.text = text.value.trim().toLowerCase();
+      renderBoard();
+    }, 120);
+  };
 }
 
 /* The board scrolls sideways when the stages outrun the viewport, but macOS
@@ -1248,6 +1340,7 @@ window.openDrawer = openDrawer;
 window.respond = respond;
 window.decide = decide;
 
+wireFilters();
 refresh();
 connect();
 setInterval(refresh, 15000);

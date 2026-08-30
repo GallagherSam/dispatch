@@ -30,7 +30,7 @@ from dispatch.config import (
     save_agents,
     save_config,
 )
-from dispatch.db import DB, open_db
+from dispatch.db import DB, now, open_db
 
 SCAFFOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scaffold")
 
@@ -1012,6 +1012,12 @@ def cmd_status(args) -> int:
                     f"{' — CEILING REACHED' if over else ''}{C['0']}")
     judged = (f", {spend['arbiter_calls']} arbiter call(s) "
               f"${spend['arbiter_usd']:.2f}") if spend["arbiter_calls"] else ""
+    # what is not in that number yet
+    if spend["in_flight"]:
+        since = spend["in_flight_since"]
+        age = f", oldest {int(now() - since)}s" if since else ""
+        judged += (f"  {C['dim']}+{spend['in_flight']} still running"
+                   f"{age}, not yet costed{C['0']}")
     _p(f"  spend     ${total:.2f} over {spend['runs']} run(s)"
        f"{judged}{cap_note}")
     if total_cap is None and total > 0:

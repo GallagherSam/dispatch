@@ -60,6 +60,21 @@ it was invisible to this figure, to subtree budgets and to `budget_remaining` �
 so a board with `arbiter_judges` on a stage was spending more than it said.
 `dispatch status` breaks the two out whenever any arbiter call has happened.
 
+### Why the total lags while agents are working
+
+A run's cost does not exist until the run ends — the agent CLI reports
+`total_cost_usd` once, on its final event, and nothing before that carries a
+dollar figure. So a board with agents in flight is always showing a number that
+is behind.
+
+Rather than guess, both the board and `dispatch status` say what is missing:
+
+    spend     $861.40 over 381 run(s)  +2 still running, oldest 320s, not yet costed
+
+Converting the streamed token counts into money would need a price table, and a
+price table that drifts reports confident nonsense — which is the failure this
+project has already fixed once, when arbiter spend was measured and discarded.
+
 Rate limits are the real ceiling on a subscription. Teach
 `.dispatch/gates/quota.sh` to print your remaining percentage and the
 `quota_above` gate will hold cards rather than burning through it — see
