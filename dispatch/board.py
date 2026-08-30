@@ -206,10 +206,33 @@ def subtree_budget(db: DB, cfg: dict[str, Any], task_id: str
     if not cap:
         cap = dict(cfg.get("containment", {}).get("default_budget", {}))
     ids = subtree_ids(db, root)
-    qmarks = ",".join("?" * len(ids))
-    r = db.q1(f"SELECT COALESCE(SUM(usd),0) usd FROM runs WHERE task_id IN ({qmarks})",
-              tuple(ids))
-    return cap, {"usd": float(r["usd"] or 0.0)}
+    return cap, {"usd": spend(db, ids)["usd"]}
+
+
+def spend(db: DB, task_ids: list[str] | None = None) -> dict[str, Any]:
+    """What has actually been spent, agents and arbiter both.
+
+    Arbiter cost used to be discarded at the point of the call, so every
+    judgment, adjudication and triage was free as far as the board, the
+    subtree budgets and the `budget_remaining` gate were concerned. They were
+    not free. `runs` still counts only agent runs — a run means an agent worked
+    a card, and inflating that number to make the money add up would just move
+    the lie somewhere else.
+    """
+    where, args = "", ()
+    if task_ids is not None:
+        if not task_ids:
+            return {"usd": 0.0, "agent_usd": 0.0, "arbiter_usd": 0.0,
+                    "runs": 0, "arbiter_calls": 0}
+        where = f" WHERE task_id IN ({','.join('?' * len(task_ids))})"
+        args = tuple(task_ids)
+    r = db.q1(f"SELECT COALESCE(SUM(usd),0) usd, COUNT(*) n FROM runs{where}", args)
+    a = db.q1("SELECT COALESCE(SUM(usd),0) usd, COUNT(*) n FROM arbiter_calls"
+              + where, args)
+    agent, arb = float(r["usd"] or 0.0), float(a["usd"] or 0.0)
+    return {"usd": round(agent + arb, 4), "agent_usd": round(agent, 4),
+            "arbiter_usd": round(arb, 4), "runs": r["n"],
+            "arbiter_calls": a["n"]}
 
 
 # ---------------------------------------------------------------------------

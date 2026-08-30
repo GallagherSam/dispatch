@@ -924,7 +924,7 @@ def cmd_status(args) -> int:
     leased = db.q("SELECT * FROM leases")
     counts = {r["status"]: r["c"] for r in
               db.q("SELECT status, COUNT(*) c FROM tasks GROUP BY status")}
-    spend = db.q1("SELECT COALESCE(SUM(usd),0) usd, COUNT(*) n FROM runs")
+    spend = B.spend(db)
     ratio, created, done = P.expansion_ratio(db, cfg)
     open_cp = db.q1("SELECT COUNT(*) c FROM checkpoints WHERE status='open'")["c"]
 
@@ -990,7 +990,10 @@ def cmd_status(args) -> int:
         over = total >= float(total_cap)
         cap_note = (f"  {C['r'] if over else C['dim']}of ${float(total_cap):.2f}"
                     f"{' — CEILING REACHED' if over else ''}{C['0']}")
-    _p(f"  spend     ${total:.2f} over {spend['n']} run(s){cap_note}")
+    judged = (f", {spend['arbiter_calls']} arbiter call(s) "
+              f"${spend['arbiter_usd']:.2f}") if spend["arbiter_calls"] else ""
+    _p(f"  spend     ${total:.2f} over {spend['runs']} run(s)"
+       f"{judged}{cap_note}")
     if total_cap is None and total > 0:
         _p(f"  {C['dim']}          per-subtree ceilings only; set "
            f"containment.total_budget_usd for a board-wide one{C['0']}")

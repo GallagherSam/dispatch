@@ -35,6 +35,24 @@ When several gates disagree the most restrictive wins:
 `concurrency` `wip_limit` `mutex_free` `budget_remaining` `time_window`
 `quota_above` — reads `.dispatch/gates/quota.sh` for remaining percent
 
+### When `arbiter_judges` cannot reach a model
+
+It used to pass. That made the only gate that costs money also the only gate a
+network blip could walk straight through — a card could merge having been
+judged by nothing. What it does now depends on why the call failed, because
+those are not the same problem:
+
+| | |
+|---|---|
+| the process crashed, timed out, or said nothing | `defer` and retry, up to three times, then escalate |
+| the model answered but not in JSON | `escalate` — the same prompt tends to produce the same prose |
+| no arbiter is configured at all | `escalate` — a gate that cannot run is not a gate |
+
+Deferring is bounded on purpose. An unbounded retry on a condition that never
+changes is a stall wearing a retry's clothes, and this board has been bitten by
+a silent stall before. A card that recovers resets its own budget, so an outage
+last week does not count against it today.
+
 Write them shorthand in a pipeline: `"tests_pass"`, `"quota_above:30"`,
 `"wip_limit:build,4"`. Or as an object to force a hook:
 `{"gate": "tests_pass", "hook": "pre_transition"}`.
