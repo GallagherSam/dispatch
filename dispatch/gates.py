@@ -325,10 +325,46 @@ def _run_cmd_gate(ctx, args, label: str, default_key: str) -> Verdict:
     except subprocess.TimeoutExpired:
         return Verdict(FAIL, f"{label} timed out", evidence=f"$ {cmd}\n(timed out)")
     if out.returncode != 0:
-        tail = (out.stdout + "\n" + out.stderr).strip()[-4000:]
-        return Verdict(FAIL, f"{label} failed (exit {out.returncode})",
-                       evidence=f"$ {cmd}\n{tail}")
+        whole = out.stdout + "\n" + out.stderr
+        tail = whole.strip()[-4000:]
+        note = _looks_truncated(whole, out.returncode)
+        return Verdict(FAIL,
+                       f"{label} {'was cut short' if note else 'failed'} "
+                       f"(exit {out.returncode})",
+                       evidence=f"$ {cmd}\n{note}{tail}")
     return _p(f"{label} clean")
+
+
+#: Lines that mean a case failed. Deliberately broad — a false negative here
+#: makes a real failure look truncated, which is the expensive direction.
+_FAILED_MARKERS = ("FAIL", "FAILED", "ERROR", "Traceback", "assert",
+                   "panic:", "✗", "✘", "not ok")
+_PASSED_MARKERS = ("PASS", "ok ", "✓", "✔", "passed")
+
+
+def _looks_truncated(output: str, returncode: int) -> str:
+    """A run that died mid-suite is not a run that failed.
+
+    When credentials expire partway through, the card comes back with
+    "tests failed (exit 1)" over evidence that is a wall of passes and no
+    failure anywhere. That is what a *killed* run looks like, and an operator
+    who believes it sends good work back to be rebuilt. The verdict is still
+    FAIL — deferring on this would stall the card if the cause never clears —
+    but it says which of the two it looks like, at the top, where it is read.
+    """
+    if returncode < 0 or returncode in (137, 143):        # SIGKILL / SIGTERM
+        return ("NOTE: the command was killed by a signal — this is an "
+                "interrupted run, not a failing one. Check credentials and "
+                "the scheduler before requeueing.\n\n")
+    upper = output.upper()
+    if any(m.upper() in upper for m in _FAILED_MARKERS):
+        return ""
+    if not any(m.upper() in upper for m in _PASSED_MARKERS):
+        return ""                                          # said nothing useful
+    return ("NOTE: this output has passes and no failure of any kind, yet the "
+            "command exited non-zero — it looks cut short rather than failing "
+            "(expired credentials mid-suite do this). Confirm by running it "
+            "yourself before treating the branch as broken.\n\n")
 
 
 def _g_tests_pass(ctx, args) -> Verdict:

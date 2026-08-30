@@ -186,7 +186,13 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
     "reviewer": {
         "label": "Reviewer",
         "model": "sonnet",
-        "allowed_tools": "Read,Grep,Glob,Bash(git *),WebSearch,WebFetch",
+        # A reviewer that cannot run the suite cannot check the criterion that
+        # matters most. It says so honestly in every handback, which moves the
+        # verification to you rather than removing it. `Bash(git *)` was meant
+        # to stop the reviewer authoring; it also stopped it verifying.
+        # Withholding Write and Edit is what keeps the role honest, and
+        # anything it did change still has to clear `diff_scope`.
+        "allowed_tools": "Read,Grep,Glob,Bash,WebSearch,WebFetch",
         "prompt_file": "reviewer.md",
     },
     "integrator": {

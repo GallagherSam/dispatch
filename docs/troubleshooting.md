@@ -113,3 +113,17 @@ merges without killing the process.
 
 The event log is append-only and records every state change with its actor, so
 "what did the arbiter see when it approved that?" is answerable.
+
+## "tests failed" over evidence that is all passes
+
+A *killed* run, not a failing one — usually credentials expiring mid-suite. The
+gate says so at the top of the evidence; run the command yourself before
+treating the branch as broken. On `401` or `OAuth token revoked`, logging in
+again is not enough: the daemon hands workers the environment it started with,
+so `dispatch down && dispatch up`.
+
+## A card sits in `merging`
+
+`ls` and `status` name the reason under the card; `blocked` shows it for every
+unfinished card.
+
