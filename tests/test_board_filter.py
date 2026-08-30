@@ -61,11 +61,22 @@ class TestTheFilterExists(BoardCase):
 class TestSpendAdmitsWhatIsStillRunning(BoardCase):
     needs_git = False
 
-    def _run(self, status, usd=None, age=0):
+    def _run(self, status, usd=None, age=0, task=None):
+        """A run, with the lease that proves an agent is really holding it.
+
+        A `running` row on its own is not evidence — see
+        TestOrphanedRunsAreNotInFlight for why.
+        """
+        rid = "r_" + status + str(age)
+        tid = task or self.tid
         self.db.x("INSERT INTO runs (id,task_id,stage,agent_type,attempt,status,"
                   "started_at,usd) VALUES (?,?,?,?,?,?,?,?)",
-                  ("r_" + status + str(age), self.tid, "build", "developer", 1,
-                   status, time.time() - age, usd))
+                  (rid, tid, "build", "developer", 1, status,
+                   time.time() - age, usd))
+        if status == "running":
+            self.db.x("INSERT OR REPLACE INTO leases (task_id,run_id,pid,stage,"
+                      "heartbeat_at,expires_at) VALUES (?,?,?,?,?,?)",
+                      (tid, rid, 1, "build", time.time(), time.time() + 900))
 
     def setUp(self):
         super().setUp()
@@ -90,8 +101,9 @@ class TestSpendAdmitsWhatIsStillRunning(BoardCase):
         self.assertIsNone(s["in_flight_since"])
 
     def test_the_oldest_unfinished_run_is_the_one_reported(self):
+        # a lease is per card, so two live runs means two cards
         self._run("running", None, 100)
-        self._run("running", None, 900)
+        self._run("running", None, 900, task=self.add_card("second"))
         s = B.spend(self.db)
         self.assertEqual(s["in_flight"], 2)
         self.assertLess(abs(time.time() - s["in_flight_since"] - 900), 5)
@@ -99,9 +111,7 @@ class TestSpendAdmitsWhatIsStillRunning(BoardCase):
     def test_a_subtree_only_counts_its_own(self):
         other = self.add_card("other")
         self._run("running", None, 50)
-        self.db.x("INSERT INTO runs (id,task_id,stage,agent_type,attempt,status,"
-                  "started_at) VALUES ('r_o',?,'build','developer',1,'running',?)",
-                  (other, time.time()))
+        self._run("running", None, 10, task=other)
         self.assertEqual(B.spend(self.db, [self.tid])["in_flight"], 1)
         self.assertEqual(B.spend(self.db, [])["in_flight"], 0)
 
@@ -125,3 +135,57 @@ class TestSpendAdmitsWhatIsStillRunning(BoardCase):
         self.assertIn("in_flight_runs", js)
         self.assertIn("running</span>", js.replace("\n", "").replace(" ", ""),
                       "the count is fetched but never rendered")
+
+
+class TestOrphanedRunsAreNotInFlight(BoardCase):
+    needs_git = False
+
+    def setUp(self):
+        super().setUp()
+        self.tid = self.add_card("x")
+
+    def _run(self, rid, age, leased=None):
+        self.db.x("INSERT INTO runs (id,task_id,stage,agent_type,attempt,status,"
+                  "started_at) VALUES (?,?,'build','developer',1,'running',?)",
+                  (rid, self.tid, time.time() - age))
+        if leased is not None:
+            self.db.x("INSERT OR REPLACE INTO leases (task_id,run_id,pid,stage,"
+                      "heartbeat_at,expires_at) VALUES (?,?,?,?,?,?)",
+                      (self.tid, rid, 1, "build", time.time(),
+                       time.time() + leased))
+
+    # REGRESSION: `status='running'` is not evidence an agent is working. A run
+    # whose process dies without reaching the finish path keeps that status
+    # forever — a real board had eleven, the oldest 86 hours old. Counting
+    # those as in flight makes the header read "+11 still running" on an idle
+    # board, which is both alarming and false.
+    def test_a_run_with_no_lease_is_not_in_flight(self):
+        self._run("r_orphan", age=86 * 3600)
+        self.assertEqual(B.spend(self.db)["in_flight"], 0)
+        self.assertIsNone(B.spend(self.db)["in_flight_since"])
+
+    def test_a_run_with_an_expired_lease_is_not_in_flight(self):
+        self._run("r_stale", age=7200, leased=-60)
+        self.assertEqual(B.spend(self.db)["in_flight"], 0)
+
+    def test_a_genuinely_live_run_still_counts(self):
+        self._run("r_live", age=120, leased=900)
+        s = B.spend(self.db)
+        self.assertEqual(s["in_flight"], 1)
+        self.assertLess(abs(time.time() - s["in_flight_since"] - 120), 5)
+
+    def test_orphans_do_not_drag_the_age_backwards(self):
+        # the oldest *live* run is the useful number; an orphan from Tuesday
+        # would otherwise own it
+        self._run("r_old_orphan", age=86 * 3600)
+        self._run("r_live2", age=90, leased=900)
+        s = B.spend(self.db)
+        self.assertEqual(s["in_flight"], 1)
+        self.assertLess(abs(time.time() - s["in_flight_since"] - 90), 5)
+
+    def test_a_finished_run_is_never_in_flight(self):
+        self.db.x("INSERT INTO runs (id,task_id,stage,agent_type,attempt,status,"
+                  "started_at,usd) VALUES ('r_done',?,'build','developer',1,"
+                  "'finished',?,1.0)", (self.tid, time.time() - 300))
+        self.assertEqual(B.spend(self.db)["in_flight"], 0)
+        self.assertEqual(B.spend(self.db)["usd"], 1.0)
